@@ -17,7 +17,7 @@ Getter :: A method used to retrieve the value of a field.
 Setter :: A method used to change the value of a field.
 Superclass :: A class that another class inherits from.
 Subclass :: A class that inherits fields and methods from another class.
-Instance :: A specific object created from a class, usually using the new keyword.
+Static :: A keyword that makes a field or method belong to the class instead of to each object.
 Package :: A way to organize related classes and interfaces into a group.
 Access modifier :: A keyword that determines the accessibility of a class, field, method, or constructor.
 

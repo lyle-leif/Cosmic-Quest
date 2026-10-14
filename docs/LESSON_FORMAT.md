@@ -10,7 +10,7 @@ Each term goes on its own line, written like this:
     Term :: Definition
 
 The part before `::` is the term, and the part after it is the definition.
-Spaces around `::`  are optional.
+Spaces around `::` are optional.
 
 Example:
 
@@ -36,3 +36,12 @@ Example:
 ## Errors
 
 A line that has no :: is invalid. The game reports it with its line number.
+
+## Extra rules
+
+- A line is split at the first `::` only, so a definition may contain `::`.
+- Spaces at the start and end of the term and the definition are removed.
+- A line with an empty term or an empty definition (for example `Term ::`) is invalid.
+- List items cannot contain commas, because commas separate the items.
+- Each term should appear only once in a file.
+
