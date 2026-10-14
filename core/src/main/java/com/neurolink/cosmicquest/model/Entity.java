@@ -29,8 +29,11 @@ public abstract class Entity implements Combatant {
 
     @Override
     public void takeDamage(int amount) {
-        this.hp = Math.max(0, this.hp - amount);
+    if (amount < 0) {
+        throw new IllegalArgumentException("Damage cannot be negative");
     }
+    this.hp = Math.max(0, this.hp - amount);
+}
 
     @Override
     public boolean isDefeated() {
