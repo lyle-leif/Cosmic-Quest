@@ -1,0 +1,26 @@
+# OOP Fundamentals lesson for Cosmic Quest
+
+Class :: A blueprint that describes the fields and methods of an object.
+Object :: An instance of a class that contains data and can perform actions.
+Encapsulation :: The practice of bundling data and methods together and restricting direct access to some data.
+Inheritance :: A feature that allows a class to acquire fields and methods from another class.
+Polymorphism :: The ability of the same method name to behave differently depending on the object.
+Abstraction :: Hiding complex implementation details and showing only the essential features.
+Constructor :: A special method that runs when an object is created.
+Method :: A block of code that performs a specific task.
+Field :: A variable that stores data belonging to an object.
+Interface :: A contract that specifies methods a class must implement.
+Abstract class :: A class that cannot be instantiated directly and may contain methods without implementations.
+Overriding :: Redefining an inherited method in a subclass to provide different behavior.
+Overloading :: Defining multiple methods with the same name but different parameter lists.
+Getter :: A method used to retrieve the value of a field.
+Setter :: A method used to change the value of a field.
+Superclass :: A class that another class inherits from.
+Subclass :: A class that inherits fields and methods from another class.
+Instance :: A specific object created from a class, usually using the new keyword.
+Package :: A way to organize related classes and interfaces into a group.
+Access modifier :: A keyword that determines the accessibility of a class, field, method, or constructor.
+
+[ENUM] Pillars of OOP :: Encapsulation, Inheritance, Polymorphism, Abstraction
+[ENUM] Access modifiers :: public, private, protected, default
+[ENUM] Java loop types :: for loop, while loop, do-while loop, enhanced for loop
