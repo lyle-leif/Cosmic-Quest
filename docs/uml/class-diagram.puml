@@ -1,0 +1,121 @@
+@startuml
+title Cosmic Quest Class Diagram v1
+
+' Interfaces
+interface Combatant {
+    + takeDamage(int amount): void
+    + isDefeated(): boolean
+    + getHp(): int
+    + getMaxHp(): int
+}
+
+interface QuestionProvider {
+    + generate(LessonData data): List<Question>
+}
+
+' Abstract Classes
+abstract class Entity implements Combatant {
+    - name: String
+    - level: int
+    - hp: int
+    - maxHp: int
+    - attackPower: int
+    + attack(Combatant target): void
+    + getQuestionType(): QuestionType
+    + getSpecialMove(): String
+}
+
+abstract class Question {
+    - questionText: String
+    - correctAnswer: String
+    - difficulty: int
+    + checkAnswer(String input): boolean
+    + getType(): QuestionType
+    # normalize(String s): String
+}
+
+abstract class BattleMode {
+    - questionPool: QuestionPool
+    - entity: Entity
+    - currentTurn: int
+    - state: BattleState
+    + startBattle(): void
+    + getCurrentQuestion(): Question
+    + submitAnswer(String answer): TurnResult
+    + nextTurn(): void
+    + endBattle(): void
+}
+
+abstract class PowerUp {
+    - name: String
+    - description: String
+    + apply(Player p, BattleMode b): void
+}
+
+' Enums
+enum QuestionType {
+    IDENTIFICATION
+    REASONING
+    MULTIPLE_CHOICE
+    ENUMERATION
+}
+
+enum BattleState {
+    QUESTION
+    PLAYER_ATTACK
+    ENEMY_ATTACK
+    WON
+    LOST
+}
+
+' Concrete Classes
+class Player implements Combatant {
+    - name: String
+    - hp: int
+    - maxHp: int
+    - score: int
+    - streak: int
+    - shieldTurns: int
+    + heal(int amount): void
+    + addScore(int points): void
+    + increaseStreak(): void
+    + resetStreak(): void
+}
+
+class VoidBrute extends Entity
+class StarWeaver extends Entity
+class NebulaLich extends Entity
+class LunarBeast extends Entity
+
+class IdentificationQuestion extends Question
+class MultipleChoiceQuestion extends Question
+class EnumerationQuestion extends Question
+class ReasoningQuestion extends Question
+
+class SoloBossBattle extends BattleMode
+class SquadBossBattle extends BattleMode
+
+class Shield extends PowerUp
+class Hint extends PowerUp
+class DoubleDamage extends PowerUp
+class Repair extends PowerUp
+
+class TxtParser
+class LessonData
+class QuestionGenerator
+class QuestionPool
+class DamageCalculator
+class MatchStats
+
+' Relationships
+TxtParser --> LessonData : parses >
+LessonData o-- Term : contains *
+QuestionGenerator ..> LessonData : uses
+QuestionPool o-- Question : holds *
+BattleMode o-- QuestionPool : uses 1
+BattleMode o-- Entity : battles 1
+BattleMode ..> DamageCalculator : uses
+BattleMode ..> MatchStats : records
+Player --o Team : member of *
+SquadBossBattle o-- Team : controls 1
+@enduml
