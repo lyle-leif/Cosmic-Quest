@@ -8,7 +8,7 @@
 | **Repository** | github.com/lyle-leif/Cosmic-Quest (default branch `dev`) |
 | **Timeline sheet** | Google Sheet "OOP Timeline" (Timeline, Console Files, Guide, Progress) |
 | **Status** | S01–S03 merged on `dev` (as of Nov 9, 2026) |
-| **Version** | 1.0 |
+| **Version** | 1.1 (adds the console build plan, section 15) |
  
 ---
  
@@ -240,12 +240,12 @@ Class diagram: `docs/uml/class-diagram.puml` (v1, updated to v2 in S08 and v3 in
  
 | Item | Rule |
 |---|---|
-| Ownership | One task per member per session, from the Timeline sheet |
-| Review rotation | Lyle reviews Jhon Moises, Angelo reviews Lyle, Jhon Moises reviews Angelo |
+| Ownership | S01–S03: one task per member per session. From S04: Lyle does every task (see `MIGRATION.md`) |
+| Review | S01–S03: rotation (Lyle → Jhon Moises → Angelo → Lyle). From S04: self-review with the `MIGRATION.md` checklist, and `.\gradlew core:test` must pass |
 | Branches | `main` = releases only; `dev` = finished work (protected); one `feature/`, `fix/`, `test/` or `docs/` branch per task |
 | Commits | PR title = the sheet's commit message, `[Sxx] type(scope): summary`; task PRs use Squash and merge |
 | Releases | PR from `dev` into `main` with a merge commit, then a tag |
-| Protection | PR and 1 approval required on `dev` and `main`; no force pushes or deletions |
+| Protection | Ruleset "Protect dev and main": a PR is required (0 approvals, so the owner can merge their own); force pushes and branch deletion are blocked. A direct push to `dev` fails with `GH013`, which means "create a branch first" |
 | Tools | VS Code only; Live Share for short pairing; Claude reviews work and guides step by step |
  
 ## 12. Acceptance criteria for v1.0
@@ -269,6 +269,8 @@ Class diagram: `docs/uml/class-diagram.puml` (v1, updated to v2 in S08 and v3 in
 | Merge conflicts on shared files (`BattleController`, `BattleMode`) | Lost time | Pull `dev` before starting; owners merge first; separate controller from screen |
 | Art and audio take longer than code | Unpolished GUI | Layered, tinted sprites; free assets with licenses in `CREDITS.md` |
 | A member falls behind | Uneven contribution | Review within 24 hours; "(part 1)" commits; reassign in the sheet when needed |
+| One person finishes 51 tasks alone (from S04) | Console late, GUI cut | Build Solo battle end to end before power-ups, Squad and AI (section 15) |
+| Known console bugs (input, math, battle loop) | Crashes, wrong damage, endless loops | Fixes are built into each task in section 15.2; each has a test |
  
 ## 14. Current status (Nov 9, 2026)
  
@@ -277,4 +279,46 @@ Class diagram: `docs/uml/class-diagram.puml` (v1, updated to v2 in S08 and v3 in
 | S01 | LibGDX project setup; lesson format + sample lesson; `QuestionType`, `Combatant`, `Entity` |
 | S02 | `Player`; 4 alien subclasses; UML v1 |
 | S03 | `TxtParser`, `LessonData`, `Term`, `InvalidLessonFormatException`; abstract `Question`; `IdentificationQuestion`, `MultipleChoiceQuestion` |
-| Next (S04) | `QuestionGenerator` (Jhon Moises), `EnumerationQuestion` + `ReasoningQuestion` (Lyle), JUnit 5 tests (Angelo) |
+| Next (S04) | `EnumerationQuestion` + `ReasoningQuestion`, then `QuestionGenerator`, then JUnit 5 tests (all Lyle; see section 15) |
+
+## 15. Console build plan (S04–S08)
+
+This plan replaces the S04–S08 task order for solo work. Every task keeps its commit message from the Timeline sheet. Each task lists the problems it is likely to hit and the fix that must be built in, so the fix ships with the task instead of becoming a bug later.
+
+### 15.1 Decisions made up front
+
+| # | Topic | Decision |
+|---|---|---|
+| D1 | Power-up package | `PowerUp`, its 4 subclasses and a `PowerUpInventory` (the 3 slots) live in `logic`, not `model`. `Player` does not hold power-ups; `BattleMode` keeps one inventory per player. This way `model` never imports `logic` (fixes the `PowerUp.apply(Player, BattleMode)` cycle). |
+| D2 | Console timer | `Scanner.nextLine()` cannot be interrupted. The console measures time instead: record the time before the question; an answer that arrives after `ANSWER_TIME_LIMIT_SECONDS` counts as a timeout, even if it is right. A live countdown is GUI only. |
+| D3 | Input | One `Scanner` for the whole program, created in `ConsoleMain` and passed in. Only `nextLine()` is used; numbers are parsed with `Integer.parseInt` inside `try/catch`. |
+| D4 | Both at 0 HP | The alien is checked first: if the player's hit defeats it, the alien does not strike back, so the player wins. |
+| D5 | Partial enumeration damage | A match ratio above 0 always deals at least 1 damage. |
+| D6 | Randomness | Every class that uses randomness takes a `Random` in a constructor, so tests can use a fixed seed (`new Random(42)`). |
+| D7 | Build order | Solo battle playable end to end first; power-ups, Squad and AI after. |
+
+### 15.2 Tasks
+
+| # | Session | Task | Problems to prevent → built-in fix | Done when |
+|---|---|---|---|---|
+| 1 | S04 | `EnumerationQuestion`, `ReasoningQuestion` (`model`) | Integer division (`3 / 4 = 0`) → cast to `double` first. Duplicate items counted twice → count matches in a `Set`. Keyword found inside another word (`class` in `subclass`) → split the answer into words and match whole words. Punctuation (`objects.` ≠ `objects`) → strip punctuation before comparing. `null` or empty answer → ratio `0.0`, no exception. Empty or `null` list → `IllegalArgumentException`, validated in a static helper inside `super(...)`. | A temporary check prints the expected results; no `*Check.java` committed |
+| 2 | S04 | `QuestionGenerator` (`logic`) | Distractor equals the correct term or repeats → choose from a shuffled copy with the correct term removed. Fewer than 4 terms or no `[ENUM]` lines → skip that type, never throw. Short definition gives fewer than 2 keywords → skip that term for Reasoning (never divide by 0). Random results → injected `Random` (D6). | Sample lesson produces all 4 types |
+| 3 | S04 | JUnit 5 + first tests | Tests do not start on Gradle 9 → add `junit-platform-launcher`. `Path.of("assets/...")` fails in tests (working directory is `core/`) → write lessons with `Files.createTempFile`. | **Gate 1:** 10+ tests pass with `.\gradlew core:test` |
+| 4 | S05 | `QuestionPool` | Pool runs empty → `isEmpty()` check; the battle refills from the generator. Changing a list while looping (`ConcurrentModificationException`) → `ArrayDeque` with `poll` / `offer` only. | Tests: missed question comes back last; empty pool handled |
+| 5 | S05 | `DamageCalculator` | `Math.round` returns `long` → `(int) Math.round(...)`. Streak bonus not capped → `Math.min(streak * 0.10, 0.50)`. Magic numbers → `private static final` constants from section 7.3. Partial damage rounds to 0 → D5. | Tests for streak 0, 3 and 10, each difficulty, and ratio 0.75 |
+| 6 | S05 | `ConsoleRenderer` | `█` or emojis show as `?` in the Windows console → ASCII bars like `[#####-----]`. Printing leaking into `logic` → only `ConsoleRenderer` calls `System.out`. | HUD prints for a sample player and alien |
+| 7 | S06 | `BattleState`, `TurnResult`, abstract `BattleMode` | Answers accepted after the battle ends → `submitAnswer` rejects input unless the state is `QUESTION`. Debug printing in logic → return a `TurnResult`; the renderer prints it. | Compiles; tests for state checks |
+| 8 | S06 | `SoloBossBattle` (built **before** power-ups, D7) | Tie at 0 HP → D4. "Every 3rd turn" special move fires on the wrong turn → one turn counter, `currentTurn % 3 == 0`, tested. Timeout → D2. | Test: a scripted battle reaches `WON` and another reaches `LOST` |
+| 9 | S06 | `PowerUp` classes (`logic`, D1) | Shield, Double Damage and Hint stack in the wrong order → apply them in one method in a fixed order (Shield, Double Damage, damage, Repair). Hint must not change the `Question` → store hidden options in `BattleMode`. Repair above max → capped by `heal`. Every 3rd streak grants one → injected `Random`. | Tests for each power-up alone, then together |
+| 10 | S07 | `MatchStats` + debrief | Wrong star count → 0 stars on a loss; 1 for a win; 2 if hull > 50%; 3 if nothing was missed. One test per case. | Debrief lists every missed question and its answer |
+| 11 | S07 | Console main menu (`ConsoleMain`) | `Scanner` gets no input under Gradle → run with the VS Code Run button, or add `run { standardInput = System.in }`. `nextInt` leaves a newline → D3. Missing lesson file → catch `NoSuchFileException` and show a message. Bad lesson → catch `InvalidLessonFormatException`, show the line number. Ctrl+Z / Ctrl+D (`NoSuchElementException`) → exit cleanly. Wrong working directory → let the player type the lesson path. | A Solo battle plays start to finish from the menu; letters, blank lines and bad paths never crash it |
+| 12 | S07 | `Team` + `SquadBossBattle` | Endless loop while skipping defeated players → stop when all are defeated (team loses). More than 3 players → rejected. | Tests: a defeated player is skipped; all defeated means `LOST` |
+| 13 | S08 | AI provider with offline fallback | API key committed → `config.properties` in `.gitignore`, only `config.properties.example` committed. Model name out of date → check ai.google.dev first. Timeout, HTTP 429 or bad JSON → fall back to `LocalProvider` with "Offline: using local questions". | Game plays with Wi-Fi off |
+| 14 | S08 | UML v2 + console guide | Diagram out of date → show D1 (power-ups in `logic`); rename `class-diagram-v1_1.png` to `class-diagram-v1.png`. | UML matches the code |
+| 15 | S08 | Integration tests + release | | **Gate 2:** all tests pass, one full manual game, tag `v0.1-console` |
+
+### 15.3 Rules checked on every task
+
+- No `System.out` outside `ConsoleRenderer`; no LibGDX imports in `model` or `logic` (VS Code may suggest `com.badlogic` classes such as `Array` or `MathUtils`; pick `java.util`).
+- HP changes only through `takeDamage` and `heal`; no public fields and no `setHp`.
+- Git: `git switch dev` → `git pull` → `git switch -c <branch>` before coding; `git add` named files only (never `*Check.java`, `build/`, `.vscode/` or `config.properties`); never `--force`.
