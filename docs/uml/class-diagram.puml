@@ -55,7 +55,6 @@ package model {
         - score: int
         - streak: int
         - shieldTurns: int
-        - powerUps: List<PowerUp> (S06)
         + Player(name: String)
         + takeDamage(amount: int): void
         + isDefeated(): boolean
@@ -89,16 +88,6 @@ package model {
         - {static} KEYWORD_PASS_RATIO: double = 0.6
         - keywords: List<String>
     }
-
-    abstract class PowerUp <<S06>> {
-        - name: String
-        - description: String
-        + {abstract} apply(p: Player, b: BattleMode): void
-    }
-    class Shield <<S06>> extends PowerUp
-    class Hint <<S06>> extends PowerUp
-    class DoubleDamage <<S06>> extends PowerUp
-    class Repair <<S06>> extends PowerUp
 
     class Team <<S07>> {
         - name: String
@@ -176,6 +165,26 @@ package logic {
         + endBattle(): void
     }
 
+    ' D1: power-ups live in logic so model never imports logic.
+    abstract class PowerUp <<S06>> {
+        - name: String
+        - description: String
+        + {abstract} apply(p: Player, b: BattleMode): void
+    }
+    class Shield <<S06>> extends PowerUp
+    class Hint <<S06>> extends PowerUp
+    class DoubleDamage <<S06>> extends PowerUp
+    class Repair <<S06>> extends PowerUp
+
+    class PowerUpInventory <<S06>> {
+        - {static} MAX_SLOTS: int = 3
+        - slots: List<PowerUp>
+        + add(p: PowerUp): boolean
+        + use(index: int, player: Player, battle: BattleMode): void
+        + isFull(): boolean
+        + getPowerUps(): List<PowerUp>
+    }
+
     class SoloBossBattle <<S06>> extends BattleMode {
         - player: Player
         + submitAnswer(answer: String): TurnResult
@@ -228,7 +237,9 @@ BattleMode ..> TurnResult : returns
 SoloBossBattle --> "1" Player
 SquadBossBattle --> "1" Team
 Team o-- "1..3" Player
-Player o-- "0..3" PowerUp : holds
+BattleMode *-- "1..3" PowerUpInventory : one per player
+PowerUpInventory o-- "0..3" PowerUp : holds
+PowerUp ..> Player : changes
 PowerUp ..> BattleMode : changes
 MatchStats --> "*" Question : missed
 

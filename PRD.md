@@ -200,9 +200,10 @@ Outfits are drawn by tinting sprite layers with `batch.setColor`, so no extra ar
  
 ```
 core/src/main/java/com/neurolink/cosmicquest/
-  model/    Combatant, Entity + 4 aliens, Player, Question + 4 types, QuestionType, PowerUp, Team, Outfit
+  model/    Combatant, Entity + 4 aliens, Player, Question + 4 types, QuestionType, Team, Outfit
   logic/    Term, LessonData, TxtParser, QuestionGenerator, QuestionPool, DamageCalculator,
-            BattleState, TurnResult, BattleMode, SoloBossBattle, SquadBossBattle, MatchStats, hazards
+            BattleState, TurnResult, BattleMode, SoloBossBattle, SquadBossBattle, MatchStats,
+            PowerUp + 4 types, PowerUpInventory, hazards
   ai/       QuestionProvider, LocalProvider, GeminiProvider
   console/  ConsoleMain, ConsoleRenderer               (Weeks 1–2)
   screens/  LibGDX screens and BattleController        (Weeks 3–5)
