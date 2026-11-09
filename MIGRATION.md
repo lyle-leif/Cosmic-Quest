@@ -109,7 +109,7 @@ Do tasks top to bottom: each one only needs what is above it. Full steps and "Do
 | 5 | S05 | DamageCalculator | `[S05] feat(logic): add DamageCalculator with streak bonus` | Static utility class with a private constructor; constants from PRD 7.3 |
 | 6 | S05 | ConsoleRenderer | `[S05] feat(console): add ConsoleRenderer for HUD and questions` | Only class that calls `System.out` |
 | 7 | S06 | BattleState, TurnResult, abstract BattleMode | `[S06] feat(logic): add BattleState and abstract BattleMode` | See section 6.4 |
-| 8 | S06 | PowerUp classes | `[S06] feat(model): add PowerUp classes` | `apply(Player, BattleMode)` means `model` would import `logic`; see section 6.4 for the fix |
+| 8 | S06 | PowerUp classes | `[S06] feat(logic): add PowerUp classes` | In `logic`, with `PowerUpInventory`; see section 6.4 (decided) |
 | 9 | S06 | SoloBossBattle | `[S06] feat(logic): add SoloBossBattle turn logic` | Every 3rd streak grants a random power-up |
 | 10 | S07 | MatchStats and debrief | `[S07] feat(logic): add MatchStats and mission debrief` | Add `protected MatchStats stats` to BattleMode; one `stats.recordAnswer` call in SoloBossBattle |
 | 11 | S07 | Team and SquadBossBattle | `[S07] feat(logic): add Team and SquadBossBattle` | Max 3 players; skip defeated players |
@@ -219,7 +219,7 @@ test {
  
 | Topic | Proposal |
 |---|---|
-| Package cycle | `PowerUp.apply(Player, BattleMode)` would make `model` import `logic`. Either move `PowerUp` and its 4 subclasses to `logic`, or give `apply` a small interface defined in `model` that `BattleMode` implements. Pick one before S06 and update the UML. |
+| Package cycle (**decided**, PRD D1) | `PowerUp`, its 4 subclasses and `PowerUpInventory` (3 slots: `add`, `use`, `isFull`, `getPowerUps`) are in `logic`. `Player` holds no power-ups; `BattleMode` keeps one `PowerUpInventory` per player (`Map<Player, PowerUpInventory>`, or one field in Solo). The UML already shows this. |
 | BattleMode fields | `protected` so subclasses can use them: `questionPool`, `entity`, `state`, `currentTurn`, `currentQuestion`, `stats` (S07), `doubleDamageNext` (for Double Damage) |
 | Hint | Store hidden option indexes in BattleMode (for multiple choice) or the revealed first letter; never change the `Question` object |
 | DamageCalculator | `playerDamage(int difficulty, int streak)`, `enemyDamage(Entity)`, `enumerationDamage(int difficulty, int streak, double ratio)`; all static |
