@@ -297,6 +297,7 @@ This plan replaces the S04–S08 task order for solo work. Every task keeps its 
 | D5 | Partial enumeration damage | A match ratio above 0 always deals at least 1 damage. |
 | D6 | Randomness | Every class that uses randomness takes a `Random` in a constructor, so tests can use a fixed seed (`new Random(42)`). |
 | D7 | Build order | Solo battle playable end to end first; power-ups, Squad and AI after. |
+| D8 | Streak timing | On a correct answer the battle calls `increaseStreak()` first, then passes the new streak to `DamageCalculator`. The first correct answer is streak 1 and deals +10% (difficulty 1: 22 damage). |
 
 ### 15.2 Tasks
 
