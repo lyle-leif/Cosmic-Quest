@@ -232,4 +232,61 @@ class SoloBossBattleTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new SoloBossBattle(null, new VoidBrute(1), generator));
     }
+
+    @Test
+    void perfectWinIsTrackedAndEarnsThreeStars() {
+        SoloBossBattle battle = startBattle(new VoidBrute(3));
+        int turns = 0;
+        while (true) {
+            answerRight(battle);
+            turns++;
+            if (battle.isOver()) {
+                break;
+            }
+            battle.nextTurn();
+        }
+        MatchStats stats = battle.getStats();
+        assertEquals(BattleState.WON, battle.getState());
+        assertEquals(turns, stats.getTotalAnswers());
+        assertEquals(turns, stats.getCorrectAnswers());
+        assertEquals(player.getScore(), stats.getDamageDealt(), "Score is total damage dealt");
+        assertEquals(0, stats.getDamageTaken());
+        assertTrue(stats.getMisses().isEmpty());
+        assertEquals(3, battle.getStars());
+    }
+
+    @Test
+    void lossIsTrackedAndEarnsNoStars() {
+        SoloBossBattle battle = startBattle(new VoidBrute(3));
+        Question first = battle.getCurrentQuestion();
+        while (true) {
+            battle.submitAnswer(WRONG);
+            if (battle.isOver()) {
+                break;
+            }
+            battle.nextTurn();
+        }
+        MatchStats stats = battle.getStats();
+        assertEquals(BattleState.LOST, battle.getState());
+        assertEquals(0, stats.getCorrectAnswers());
+        assertEquals(player.getMaxHp(), stats.getDamageTaken(), "Every hull point lost is counted");
+        assertEquals(first, stats.getMisses().get(0).getQuestion());
+        assertEquals(WRONG, stats.getMisses().get(0).getPlayerAnswer());
+        assertEquals(0, battle.getStars());
+    }
+
+    @Test
+    void timeoutIsRecordedAsAMiss() {
+        SoloBossBattle battle = startBattle(new VoidBrute(3));
+        battle.submitTimeout();
+        assertEquals(1, battle.getStats().getTotalAnswers());
+        assertEquals("", battle.getStats().getMisses().get(0).getPlayerAnswer());
+    }
+
+    @Test
+    void noStarsWhileTheBattleIsStillGoing() {
+        SoloBossBattle battle = startBattle(new VoidBrute(3));
+        answerRight(battle);
+        assertEquals(0, battle.getStars());
+    }
 }
