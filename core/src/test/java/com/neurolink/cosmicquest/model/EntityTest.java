@@ -49,6 +49,36 @@ class EntityTest {
     }
 
     @Test
+    void strikeIsAttackPowerByDefault() {
+        assertEquals(10, new StarWeaver(1).getStrikeDamage(3, 2));
+        assertEquals(9, new NebulaLich(1).getStrikeDamage(6, 0));
+    }
+
+    @Test
+    void groundSlamHitsHarderEveryThirdTurn() {
+        Entity brute = new VoidBrute(1);
+        assertEquals(8, brute.getStrikeDamage(1, 0));
+        assertEquals(8, brute.getStrikeDamage(2, 0));
+        assertEquals(12, brute.getStrikeDamage(3, 0));
+        assertEquals(8, brute.getStrikeDamage(4, 0));
+        assertEquals(12, brute.getStrikeDamage(6, 0));
+    }
+
+    @Test
+    void moonPounceGrowsWithEachItemMissed() {
+        Entity beast = new LunarBeast(1);
+        assertEquals(11, beast.getStrikeDamage(1, 0));
+        assertEquals(13, beast.getStrikeDamage(1, 1));
+        assertEquals(19, beast.getStrikeDamage(1, 4));
+    }
+
+    @Test
+    void strikeRejectsNegativeNumbers() {
+        assertThrows(IllegalArgumentException.class, () -> new VoidBrute(1).getStrikeDamage(-1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new LunarBeast(1).getStrikeDamage(1, -1));
+    }
+
+    @Test
     void attackHitsTargetForAttackPower() {
         Entity weaver = new StarWeaver(3);
         Player player = new Player("Lyle");

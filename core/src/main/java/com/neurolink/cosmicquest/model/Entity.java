@@ -72,6 +72,22 @@ public abstract class Entity implements Combatant {
     }
 
     /**
+     * Works out how hard this alien strikes when the player misses. By default
+     * it is the attack power; aliens with a damage special move override this.
+     *
+     * @param turn the battle's turn number, from 1.
+     * @param itemsMissed list items the player left out (enumeration only, otherwise 0).
+     * @return the damage of this strike.
+     * @throws IllegalArgumentException if turn or itemsMissed is negative.
+     */
+    public int getStrikeDamage(int turn, int itemsMissed) {
+        if (turn < 0 || itemsMissed < 0) {
+            throw new IllegalArgumentException("Turn and items missed must not be negative.");
+        }
+        return attackPower;
+    }
+
+    /**
      * Gets the type of question this entity asks.
      *
      * @return the question type
