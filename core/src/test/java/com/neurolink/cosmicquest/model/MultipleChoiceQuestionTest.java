@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 class MultipleChoiceQuestionTest {
@@ -60,5 +61,26 @@ class MultipleChoiceQuestionTest {
     @Test
     void optionsCannotBeChanged() {
         assertThrows(UnsupportedOperationException.class, () -> question.getOptions().add("x"));
+    }
+
+    @Test
+    void shuffleKeepsTheSameOptionsAndMovesTheRightLetter() {
+        boolean moved = false;
+        Random random = new Random(42);
+        for (int i = 0; i < 10; i++) {
+            question.shuffleOptions(random);
+            assertTrue(question.getOptions().containsAll(OPTIONS));
+            assertEquals("Method", question.getOptions().get(question.getCorrectIndex()));
+            char letter = (char) ('a' + question.getCorrectIndex());
+            assertTrue(question.checkAnswer(String.valueOf(letter)));
+            assertEquals("Method", question.getCorrectAnswer());
+            moved |= question.getCorrectIndex() != 2;
+        }
+        assertTrue(moved, "Ten shuffles should move the right option at least once");
+    }
+
+    @Test
+    void shuffleRejectsNullRandom() {
+        assertThrows(IllegalArgumentException.class, () -> question.shuffleOptions(null));
     }
 }

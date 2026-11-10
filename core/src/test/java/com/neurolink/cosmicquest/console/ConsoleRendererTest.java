@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.neurolink.cosmicquest.logic.BattleState;
 import com.neurolink.cosmicquest.logic.MatchStats;
+import com.neurolink.cosmicquest.logic.PowerUpInventory;
+import com.neurolink.cosmicquest.logic.Repair;
+import com.neurolink.cosmicquest.logic.Shield;
 import com.neurolink.cosmicquest.logic.TurnResult;
 import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.IdentificationQuestion;
@@ -17,6 +20,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -191,5 +196,42 @@ class ConsoleRendererTest {
         assertTrue(out.contains("MISSION FAILED"));
         assertTrue(out.contains("[ ] [ ] [ ]"));
         assertTrue(out.contains("No questions missed."));
+    }
+
+    @Test
+    void hintRuledOutOptionsAreHiddenButLettersStay() {
+        MultipleChoiceQuestion question = new MultipleChoiceQuestion("A block of code.",
+                List.of("Class", "Object", "Method", "Field"), 2, 1);
+        renderer.showQuestion(question, Set.of(0, 3));
+        String out = printed();
+        assertTrue(out.contains("A) (ruled out)"));
+        assertTrue(out.contains("B) Object"));
+        assertTrue(out.contains("C) Method"));
+        assertTrue(out.contains("D) (ruled out)"));
+        assertFalse(out.contains("Class"));
+    }
+
+    @Test
+    void powerUpsShowSlotsAndLocks() {
+        PowerUpInventory inventory = new PowerUpInventory();
+        renderer.showPowerUps(inventory);
+        assertTrue(printed().contains("none yet"));
+        inventory.add(new Shield());
+        inventory.add(new Repair());
+        inventory.lockRandomSlot(new Random(1), 2);
+        renderer.showPowerUps(inventory);
+        String out = printed();
+        assertTrue(out.contains("/1 Shield"));
+        assertTrue(out.contains("/2 Repair"));
+        assertTrue(out.contains("(locked 2)"));
+    }
+
+    @Test
+    void howToPlayShowsTheTimeLimitAndCommands() {
+        renderer.showHowToPlay(30);
+        String out = printed();
+        assertTrue(out.contains("30 seconds"));
+        assertTrue(out.contains("/quit"));
+        assertTrue(out.chars().allMatch(c -> c < 128));
     }
 }

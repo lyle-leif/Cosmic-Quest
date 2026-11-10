@@ -2,6 +2,7 @@ package com.neurolink.cosmicquest.logic;
 
 import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.Entity;
+import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
 import com.neurolink.cosmicquest.model.Player;
 import com.neurolink.cosmicquest.model.Question;
 import java.util.Random;
@@ -152,9 +153,20 @@ public class SoloBossBattle extends BattleMode {
         } else {
             taken = strikePlayer(itemsMissed(question, ratio));
             getInventory().lockRandomSlot(random, entity.getPowerUpLockTurns());
+            hexBolt(question);
             state = player.isDefeated() ? BattleState.LOST : BattleState.ENEMY_ATTACK;
         }
         return new TurnResult(question, answer, false, timedOut, ratio, dealt, taken, state);
+    }
+
+    /**
+     * Hex Bolt: if the alien reshuffles choices, the missed multiple choice
+     * question goes back into the pool with its options in a new order.
+     */
+    private void hexBolt(Question question) {
+        if (entity.reshufflesChoices() && question instanceof MultipleChoiceQuestion choice) {
+            choice.shuffleOptions(random);
+        }
     }
 
     /** Deals the player's damage to the alien and adds it to the score. */

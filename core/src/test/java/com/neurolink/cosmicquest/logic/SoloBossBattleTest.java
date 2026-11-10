@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.Entity;
+import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.LunarBeast;
+import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
+import com.neurolink.cosmicquest.model.NebulaLich;
 import com.neurolink.cosmicquest.model.Player;
 import com.neurolink.cosmicquest.model.Question;
 import com.neurolink.cosmicquest.model.StarWeaver;
@@ -288,5 +290,35 @@ class SoloBossBattleTest {
         SoloBossBattle battle = startBattle(new VoidBrute(3));
         answerRight(battle);
         assertEquals(0, battle.getStars());
+    }
+
+    @Test
+    void hexBoltReshufflesAMissedQuestionAtLevelThree() {
+        SoloBossBattle battle = startBattle(new NebulaLich(3));
+        boolean reshuffled = false;
+        for (int turn = 0; turn < 8; turn++) {
+            MultipleChoiceQuestion question = (MultipleChoiceQuestion) battle.getCurrentQuestion();
+            List<String> before = question.getOptions();
+            String right = question.getCorrectAnswer();
+            player.heal(100);
+            battle.submitAnswer(WRONG);
+            reshuffled |= !before.equals(question.getOptions());
+            assertEquals(right, question.getOptions().get(question.getCorrectIndex()));
+            battle.nextTurn();
+        }
+        assertTrue(reshuffled);
+    }
+
+    @Test
+    void noHexBoltBelowLevelThree() {
+        SoloBossBattle battle = startBattle(new NebulaLich(2));
+        for (int turn = 0; turn < 8; turn++) {
+            MultipleChoiceQuestion question = (MultipleChoiceQuestion) battle.getCurrentQuestion();
+            List<String> before = question.getOptions();
+            player.heal(100);
+            battle.submitAnswer(WRONG);
+            assertEquals(before, question.getOptions());
+            battle.nextTurn();
+        }
     }
 }
