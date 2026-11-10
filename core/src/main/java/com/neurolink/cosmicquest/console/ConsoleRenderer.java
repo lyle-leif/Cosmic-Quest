@@ -8,6 +8,7 @@ import com.neurolink.cosmicquest.model.Entity;
 import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
 import com.neurolink.cosmicquest.model.Player;
 import com.neurolink.cosmicquest.model.Question;
+import com.neurolink.cosmicquest.model.Team;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
@@ -115,6 +116,23 @@ public class ConsoleRenderer {
         out.printf(" %-" + NAME_WIDTH + "s Hull %s%n", alien,
                 hpBar(entity.getHp(), entity.getMaxHp()));
         out.println(DIVIDER);
+    }
+
+    /**
+     * Prints every Squad pilot's hull, marks whose turn it is with {@code >},
+     * and marks defeated pilots as DOWN.
+     *
+     * @param team the squad.
+     * @param current the player whose turn it is.
+     */
+    public void showTeam(Team team, Player current) {
+        out.println();
+        out.println(team.getName().toUpperCase() + " - " + current.getName() + "'s turn");
+        for (Player player : team.getPlayers()) {
+            out.printf(" %s %-" + (NAME_WIDTH - 2) + "s Hull %s%s%n", player == current ? ">" : " ",
+                    player.getName(), hpBar(player.getHp(), player.getMaxHp()),
+                    player.isDefeated() ? "  DOWN" : "");
+        }
     }
 
     /**
@@ -271,6 +289,8 @@ public class ConsoleRenderer {
         out.println(" - A wrong answer lets the alien strike, and the question comes back later.");
         out.println(" - Answer within " + secondsPerAnswer + " seconds, or it counts as a miss.");
         out.println(" - Every 3 right answers in a row earn a power-up (up to 3).");
+        out.println(" - Squad: 2 or 3 pilots take turns against a level 3 boss. A pilot at");
+        out.println("   0 hull is skipped; the squad loses when every pilot is down.");
         out.println("Battle commands:");
         out.println("  /1, /2, /3  use a power-up before you answer");
         out.println("  /quit       give up the battle");
