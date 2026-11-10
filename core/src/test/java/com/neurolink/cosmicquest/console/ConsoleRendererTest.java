@@ -15,6 +15,7 @@ import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.IdentificationQuestion;
 import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
 import com.neurolink.cosmicquest.model.Player;
+import com.neurolink.cosmicquest.model.Team;
 import com.neurolink.cosmicquest.model.VoidBrute;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -232,6 +233,23 @@ class ConsoleRendererTest {
         String out = printed();
         assertTrue(out.contains("30 seconds"));
         assertTrue(out.contains("/quit"));
+        assertTrue(out.chars().allMatch(c -> c < 128));
+    }
+
+    @Test
+    void teamMarksWhoseTurnItIsAndWhoIsDown() {
+        Team team = new Team("Squad");
+        Player lyle = new Player("Lyle");
+        Player moises = new Player("Moises");
+        team.addPlayer(lyle);
+        team.addPlayer(moises);
+        lyle.takeDamage(lyle.getMaxHp());
+        renderer.showTeam(team, moises);
+        String out = printed();
+        assertTrue(out.contains("SQUAD - Moises's turn"));
+        assertTrue(out.contains(" > Moises"));
+        assertTrue(out.contains("   Lyle"));
+        assertTrue(out.contains("DOWN"));
         assertTrue(out.chars().allMatch(c -> c < 128));
     }
 }

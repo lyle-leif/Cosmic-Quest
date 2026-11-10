@@ -179,4 +179,48 @@ class ConsoleMainTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new ConsoleMain(new Scanner(""), renderer, new Random(), null));
     }
+
+    /** Menu 3 with the lesson path, then Squad: 2 pilots with default names, against a Void Brute. */
+    private String squadVsVoidBrute(String text) throws IOException {
+        return "3\n" + lesson(text) + "\n2\n1\n\n\n1\n";
+    }
+
+    @Test
+    void squadBattleTakesTurnsAndWins() throws IOException {
+        // Level 3 Void Brute has 160 hull: 28 + 28 + 30 + 30 + 33 + 33 wins on the 6th answer.
+        String out = play(squadVsVoidBrute(ONE_TERM_LESSON) + "Class\n".repeat(6) + "\n5\n");
+        assertTrue(out.contains("Void Brute Lv 3 appears!"), "Squad always fights a level 3 boss");
+        assertTrue(out.contains("SQUAD - Pilot 1's turn"));
+        assertTrue(out.contains("SQUAD - Pilot 2's turn"));
+        assertTrue(out.contains("Pilot 2 hits Void Brute for 28 damage!"));
+        assertTrue(out.contains("MISSION COMPLETE"));
+        assertTrue(out.contains("[*] [*] [*]"));
+        assertTrue(out.contains("Correct 6/6"));
+        assertTrue(out.contains("Score 182"), "Score is the whole squad's damage");
+    }
+
+    @Test
+    void squadNeedsALesson() {
+        assertTrue(play("2\n5\n").contains("Load a lesson first"));
+    }
+
+    @Test
+    void duplicatePilotNameIsAskedAgain() throws IOException {
+        String out = play("3\n" + lesson(ONE_TERM_LESSON) + "\n2\n1\nLyle\nlyle\nMoises\n1\n/quit\n\n5\n");
+        assertTrue(out.contains("lyle is already on the team. Pick another name."));
+        assertTrue(out.contains("SQUAD - Lyle's turn"));
+        assertTrue(out.contains("Moises"));
+        assertTrue(out.contains("MISSION FAILED"));
+    }
+
+    @Test
+    void downedPilotIsSkippedUntilTheSquadFalls() throws IOException {
+        // Every answer is wrong: Pilot 1 falls on turn 9, then Pilot 2 plays alone and falls on turn 11.
+        String out = play(squadVsVoidBrute(ONE_TERM_LESSON) + "x\n".repeat(11) + "\n5\n");
+        assertTrue(out.contains("Pilot 1 is down! The squad fights on."));
+        assertTrue(out.contains("DOWN"));
+        assertTrue(out.contains("MISSION FAILED"));
+        assertTrue(out.contains("Correct 0/11"));
+        assertTrue(out.contains("Goodbye"));
+    }
 }

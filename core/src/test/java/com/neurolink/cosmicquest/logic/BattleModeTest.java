@@ -54,6 +54,11 @@ class BattleModeTest {
             questionPool.recordMissedQuestion(currentQuestion);
             return new TurnResult(currentQuestion, null, false, true, 0.0, 0, 0, state);
         }
+
+        @Override
+        protected boolean allPlayersDefeated() {
+            return false;
+        }
     }
 
     private static LessonData lesson() {
@@ -236,6 +241,11 @@ class BattleModeTest {
                     @Override
                     public TurnResult submitTimeout() {
                         return null;
+                    }
+
+                    @Override
+                    protected boolean allPlayersDefeated() {
+                        return false;
                     }
                 });
     }

@@ -1,11 +1,13 @@
 package com.neurolink.cosmicquest.console;
 
+import com.neurolink.cosmicquest.logic.BattleMode;
 import com.neurolink.cosmicquest.logic.BattleState;
 import com.neurolink.cosmicquest.logic.InvalidLessonFormatException;
 import com.neurolink.cosmicquest.logic.LessonData;
 import com.neurolink.cosmicquest.logic.PowerUp;
 import com.neurolink.cosmicquest.logic.QuestionGenerator;
 import com.neurolink.cosmicquest.logic.SoloBossBattle;
+import com.neurolink.cosmicquest.logic.SquadBossBattle;
 import com.neurolink.cosmicquest.logic.TurnResult;
 import com.neurolink.cosmicquest.logic.TxtParser;
 import com.neurolink.cosmicquest.model.Entity;
@@ -14,6 +16,7 @@ import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
 import com.neurolink.cosmicquest.model.NebulaLich;
 import com.neurolink.cosmicquest.model.Player;
 import com.neurolink.cosmicquest.model.StarWeaver;
+import com.neurolink.cosmicquest.model.Team;
 import com.neurolink.cosmicquest.model.VoidBrute;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,8 +32,8 @@ import java.util.function.IntFunction;
 import java.util.function.LongSupplier;
 
 /**
- * The console version of the game: the main menu, lesson loading and the
- * Solo battle loop. It reads the player's input and tells
+ * The console version of the game: the main menu, lesson loading, and the
+ * Solo and Squad battle loops. It reads the player's input and tells
  * {@link ConsoleRenderer} what to print; it never prints by itself.
  *
  * <ul>
@@ -66,6 +69,8 @@ public class ConsoleMain {
     private static final List<String> MAIN_MENU =
             List.of("Solo battle", "Squad battle", "Load lesson", "How to play", "Exit");
     private static final List<String> LEVELS = List.of("Level 1", "Level 2", "Level 3 (boss)");
+    private static final List<String> SQUAD_SIZES = List.of("2 pilots", "3 pilots");
+    private static final String SQUAD_NAME = "Squad";
 
     /** Every alien, in the order the menu lists them. */
     private static final List<IntFunction<Entity>> ALIENS =
@@ -179,7 +184,7 @@ public class ConsoleMain {
                 playSolo();
                 return true;
             case MENU_SQUAD:
-                renderer.showMessage("Squad battles arrive in the next update.");
+                playSquad();
                 return true;
             case MENU_LOAD:
                 promptLesson();
@@ -217,34 +222,83 @@ public class ConsoleMain {
             renderer.showError("Load a lesson first (menu 3).");
             return;
         }
-        Player player = new Player(readName());
-        Entity entity = chooseAlien();
-        SoloBossBattle battle = new SoloBossBattle(player, entity, generator, random);
+        Player player = new Player(readName("Pilot name", DEFAULT_NAME));
+        IntFunction<Entity> alien = chooseAlien();
+        int level = readChoice("CHOOSE A LEVEL", LEVELS);
+        SoloBossBattle battle = new SoloBossBattle(player, alien.apply(level), generator, random);
         battle.startBattle();
+        announce(battle.getEntity());
+
+        while (!battle.isOver()) {
+            playTurn(battle, player, null);
+        }
+
+        finish(battle, battle.getStars(), player.getScore());
+    }
+
+    /**
+     * Sets up a Squad battle: 2 or 3 pilots take turns against a level 3
+     * boss. Plays it to the end, then shows the debrief.
+     */
+    private void playSquad() {
+        if (generator == null) {
+            renderer.showError("Load a lesson first (menu 3).");
+            return;
+        }
+        int pilots = Team.MIN_PLAYERS - 1 + readChoice("HOW MANY PILOTS?", SQUAD_SIZES);
+        Team team = new Team(SQUAD_NAME);
+        for (int number = 1; number <= pilots; number++) {
+            addPilot(team, number);
+        }
+        Entity boss = chooseAlien().apply(SquadBossBattle.BOSS_LEVEL);
+        SquadBossBattle battle = new SquadBossBattle(team, boss, generator, random);
+        battle.startBattle();
+        announce(boss);
+
+        while (!battle.isOver()) {
+            playTurn(battle, battle.getCurrentPlayer(), team);
+        }
+
+        finish(battle, battle.getStars(), team.getTotalScore());
+    }
+
+    /** Asks for one pilot's name until it is not already on the team. */
+    private void addPilot(Team team, int number) {
+        while (true) {
+            String name = readName("Pilot " + number + " name", DEFAULT_NAME + " " + number);
+            try {
+                team.addPlayer(new Player(name));
+                return;
+            } catch (IllegalArgumentException e) {
+                renderer.showError(e.getMessage() + " Pick another name.");
+            }
+        }
+    }
+
+    /** Shows the alien that appears and its special move. */
+    private void announce(Entity entity) {
         renderer.showMessage("");
         renderer.showMessage(entity.getName() + " Lv " + entity.getLevel() + " appears! "
                 + entity.getSpecialMove());
+    }
 
-        while (!battle.isOver()) {
-            playTurn(battle);
-        }
-
-        renderer.showDebrief(battle.getState() == BattleState.WON, battle.getStars(),
-                player.getScore(), battle.getStats());
+    /** Shows the debrief and waits for Enter before going back to the menu. */
+    private void finish(BattleMode battle, int stars, int score) {
+        renderer.showDebrief(battle.getState() == BattleState.WON, stars, score, battle.getStats());
         renderer.showMessage("Press Enter to return to the menu.");
         readLine();
     }
 
-    /** Asks for the pilot's name; blank means "Pilot". */
-    private String readName() {
-        renderer.showMessage("Pilot name (blank for " + DEFAULT_NAME + "):");
+    /** Asks for a name; blank means the given default. */
+    private String readName(String label, String defaultName) {
+        renderer.showMessage(label + " (blank for " + defaultName + "):");
         renderer.showPrompt();
         String name = readLine().strip();
-        return name.isEmpty() ? DEFAULT_NAME : name;
+        return name.isEmpty() ? defaultName : name;
     }
 
-    /** Lists the aliens this lesson can make questions for, then asks for a level. */
-    private Entity chooseAlien() {
+    /** Lists the aliens this lesson can make questions for and returns the chosen kind. */
+    private IntFunction<Entity> chooseAlien() {
         List<IntFunction<Entity>> available = new ArrayList<>();
         List<String> names = new ArrayList<>();
         for (IntFunction<Entity> alien : ALIENS) {
@@ -254,18 +308,20 @@ public class ConsoleMain {
                 names.add(sample.getName() + " - " + sample.getSpecialMove());
             }
         }
-        int alien = readChoice("CHOOSE AN ALIEN", names);
-        int level = readChoice("CHOOSE A LEVEL", LEVELS);
-        return available.get(alien - 1).apply(level);
+        return available.get(readChoice("CHOOSE AN ALIEN", names) - 1);
     }
 
     /**
      * Plays one turn: shows the question, reads commands until an answer
      * arrives, then submits it (or a timeout, if it was too slow).
+     *
+     * @param battle the battle being played.
+     * @param player the player whose turn it is.
+     * @param team the Squad team, or null in Solo.
      */
-    private void playTurn(SoloBossBattle battle) {
+    private void playTurn(BattleMode battle, Player player, Team team) {
         long start = clock.getAsLong();
-        showBattleScreen(battle);
+        showBattleScreen(battle, player, team);
         String answer;
         while (true) {
             renderer.showPrompt();
@@ -277,7 +333,7 @@ public class ConsoleMain {
                 renderer.showMessage("You retreat from the battle.");
                 return;
             } else if (answer.startsWith(COMMAND_PREFIX)) {
-                runCommand(battle, answer);
+                runCommand(battle, player, team, answer);
             } else {
                 break;
             }
@@ -292,24 +348,30 @@ public class ConsoleMain {
         } else {
             result = battle.submitAnswer(answer);
         }
-        showTurnResult(battle, result);
+        showTurnResult(battle, player, result);
         if (!battle.isOver()) {
             battle.nextTurn();
         }
     }
 
-    /** The HUD, the question (minus options a Hint ruled out), any hint, and the power-ups. */
-    private void showBattleScreen(SoloBossBattle battle) {
-        renderer.showHud(battle.getPlayer(), battle.getEntity());
+    /**
+     * The squad (in Squad), the HUD, the question (minus options a Hint ruled
+     * out), any hint, and the player's power-ups.
+     */
+    private void showBattleScreen(BattleMode battle, Player player, Team team) {
+        if (team != null) {
+            renderer.showTeam(team, player);
+        }
+        renderer.showHud(player, battle.getEntity());
         renderer.showQuestion(battle.getCurrentQuestion(), battle.getHiddenOptions());
         if (battle.getHint() != null) {
             renderer.showMessage("Hint: " + battle.getHint());
         }
-        renderer.showPowerUps(battle.getInventory());
+        renderer.showPowerUps(battle.getInventory(player));
     }
 
     /** Runs a battle command such as /2 or /help. */
-    private void runCommand(SoloBossBattle battle, String command) {
+    private void runCommand(BattleMode battle, Player player, Team team, String command) {
         if (command.equalsIgnoreCase(HELP_COMMAND)) {
             renderer.showHowToPlay(ANSWER_TIME_LIMIT_SECONDS);
             return;
@@ -322,9 +384,9 @@ public class ConsoleMain {
             return;
         }
         try {
-            PowerUp used = battle.usePowerUp(slot - 1);
+            PowerUp used = battle.usePowerUp(player, slot - 1);
             renderer.showMessage(used.getName() + " used: " + used.getDescription());
-            showBattleScreen(battle);
+            showBattleScreen(battle, player, team);
         } catch (IllegalArgumentException e) {
             renderer.showError("There is no power-up in slot " + slot + ".");
         } catch (IllegalStateException e) {
@@ -333,8 +395,7 @@ public class ConsoleMain {
     }
 
     /** Prints what happened in a turn: the result, both hits, Hex Bolt and any reward. */
-    private void showTurnResult(SoloBossBattle battle, TurnResult result) {
-        Player player = battle.getPlayer();
+    private void showTurnResult(BattleMode battle, Player player, TurnResult result) {
         Entity entity = battle.getEntity();
         renderer.showAnswerResult(result.isCorrect(), result.getQuestion());
         if (!result.isCorrect() && result.getMatchRatio() > 0) {
@@ -352,6 +413,9 @@ public class ConsoleMain {
             }
             if (entity.reshufflesChoices() && result.getQuestion() instanceof MultipleChoiceQuestion) {
                 renderer.showMessage("Hex Bolt! That question's choices are reshuffled.");
+            }
+            if (player.isDefeated() && !battle.isOver()) {
+                renderer.showMessage(player.getName() + " is down! The squad fights on.");
             }
         }
         if (result.getPowerUpEarned() != null) {
