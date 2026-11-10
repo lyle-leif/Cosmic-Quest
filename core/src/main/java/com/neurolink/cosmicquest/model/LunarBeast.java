@@ -7,6 +7,7 @@ public class LunarBeast extends Entity {
 
     private static final int[] HP = {80, 130, 200};
     private static final int[] ATTACK = {11, 15, 22};
+    private static final int MOON_POUNCE_PER_ITEM = 2;
 
     /**
      * Creates a Lunar Beast at the given level, with full hull.
@@ -36,6 +37,19 @@ public class LunarBeast extends Entity {
     @Override
     public QuestionType getQuestionType() {
         return QuestionType.ENUMERATION;
+    }
+
+    /**
+     * Moon Pounce: the strike deals 2 extra damage for each list item the
+     * player left out.
+     *
+     * @param turn the battle's turn number, from 1.
+     * @param itemsMissed list items the player left out.
+     * @return the damage of this strike.
+     */
+    @Override
+    public int getStrikeDamage(int turn, int itemsMissed) {
+        return super.getStrikeDamage(turn, itemsMissed) + itemsMissed * MOON_POUNCE_PER_ITEM;
     }
 
     /** Returns a description of this alien's special move. */

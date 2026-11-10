@@ -7,6 +7,8 @@ public class VoidBrute extends Entity {
 
     private static final int[] HP = {60, 100, 160};
     private static final int[] ATTACK = {8, 12, 18};
+    private static final int GROUND_SLAM_EVERY = 3;
+    private static final double GROUND_SLAM_MULTIPLIER = 1.5;
 
     /**
      * Creates a Void Brute at the given level, with full hull.
@@ -36,6 +38,22 @@ public class VoidBrute extends Entity {
     @Override
     public QuestionType getQuestionType() {
         return QuestionType.IDENTIFICATION;
+    }
+
+    /**
+     * Ground Slam: every 3rd turn the strike deals 1.5 times the attack power.
+     *
+     * @param turn the battle's turn number, from 1.
+     * @param itemsMissed not used by this alien.
+     * @return the damage of this strike.
+     */
+    @Override
+    public int getStrikeDamage(int turn, int itemsMissed) {
+        int damage = super.getStrikeDamage(turn, itemsMissed);
+        if (turn > 0 && turn % GROUND_SLAM_EVERY == 0) {
+            return (int) Math.round(damage * GROUND_SLAM_MULTIPLIER);
+        }
+        return damage;
     }
 
     /** Returns a description of this alien's special move. */
