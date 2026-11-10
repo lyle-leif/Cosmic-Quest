@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.neurolink.cosmicquest.logic.BattleState;
+import com.neurolink.cosmicquest.logic.MatchStats;
+import com.neurolink.cosmicquest.logic.TurnResult;
 import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.IdentificationQuestion;
 import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
@@ -147,5 +150,46 @@ class ConsoleRendererTest {
     @Test
     void rejectsNullStream() {
         assertThrows(IllegalArgumentException.class, () -> new ConsoleRenderer(null));
+    }
+
+    @Test
+    void starRowShowsEarnedAndEmptyStars() {
+        assertEquals("[ ] [ ] [ ]", ConsoleRenderer.starRow(0));
+        assertEquals("[*] [*] [ ]", ConsoleRenderer.starRow(2));
+        assertEquals("[*] [*] [*]", ConsoleRenderer.starRow(3));
+    }
+
+    @Test
+    void debriefListsTotalsAndMisses() {
+        IdentificationQuestion field = new IdentificationQuestion("Stores data.", "Field", 1);
+        IdentificationQuestion method = new IdentificationQuestion("A block of code.", "Method", 1);
+        MatchStats stats = new MatchStats();
+        stats.recordAnswer(new TurnResult(field, "Method", false, false, 0.0, 0, 8, BattleState.ENEMY_ATTACK));
+        stats.recordAnswer(new TurnResult(method, null, false, true, 0.0, 0, 8, BattleState.ENEMY_ATTACK));
+        stats.recordAnswer(new TurnResult(method, "Method", true, false, 1.0, 22, 0, BattleState.WON));
+
+        renderer.showDebrief(true, 1, 22, stats);
+
+        String out = printed();
+        assertTrue(out.contains("MISSION COMPLETE"));
+        assertTrue(out.contains("[*] [ ] [ ]"));
+        assertTrue(out.contains("Correct 1/3 (33%)"));
+        assertTrue(out.contains("Damage dealt 22, taken 16"));
+        assertTrue(out.contains("Score 22"));
+        assertTrue(out.contains("1. Stores data."));
+        assertTrue(out.contains("Your answer:    Method"));
+        assertTrue(out.contains("Correct answer: Field"));
+        assertTrue(out.contains("2. A block of code."));
+        assertTrue(out.contains("Your answer:    (no answer)"));
+        assertTrue(out.chars().allMatch(c -> c < 128), "Only ASCII is safe in the Windows console");
+    }
+
+    @Test
+    void debriefForALossWithNoMisses() {
+        renderer.showDebrief(false, 0, 0, new MatchStats());
+        String out = printed();
+        assertTrue(out.contains("MISSION FAILED"));
+        assertTrue(out.contains("[ ] [ ] [ ]"));
+        assertTrue(out.contains("No questions missed."));
     }
 }

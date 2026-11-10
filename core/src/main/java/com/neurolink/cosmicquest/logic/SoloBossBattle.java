@@ -90,16 +90,26 @@ public class SoloBossBattle extends BattleMode {
         tickPowerUpLocks();
         double ratio = scoreAnswer(currentQuestion, answer);
         if (ratio >= FULL_MATCH) {
-            return resolveCorrect(answer);
+            return record(resolveCorrect(answer));
         }
-        return resolveMiss(answer, ratio, false);
+        return record(resolveMiss(answer, ratio, false));
     }
 
     @Override
     public TurnResult submitTimeout() {
         requireAwaitingAnswer();
         tickPowerUpLocks();
-        return resolveMiss(null, NO_MATCH, true);
+        return record(resolveMiss(null, NO_MATCH, true));
+    }
+
+    /**
+     * Returns the stars earned: 0 until the battle is won, then 1 to 3
+     * (see {@link MatchStats#getStars}).
+     *
+     * @return 0 to 3.
+     */
+    public int getStars() {
+        return stats.getStars(state == BattleState.WON, player.getHp(), player.getMaxHp());
     }
 
     /**

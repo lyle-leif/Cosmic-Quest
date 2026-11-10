@@ -44,6 +44,7 @@ public abstract class BattleMode {
     protected int currentTurn;
     protected Question currentQuestion;
     protected boolean doubleDamageNext;
+    protected final MatchStats stats = new MatchStats();
 
     private final Map<Player, PowerUpInventory> inventories = new IdentityHashMap<>();
     private String hint;
@@ -168,6 +169,23 @@ public abstract class BattleMode {
     /** Returns every question missed so far, each once, for the debrief. */
     public List<Question> getMissedQuestions() {
         return questionPool.getMissedQuestions();
+    }
+
+    /** Returns the battle's running statistics for the debrief. */
+    public MatchStats getStats() {
+        return stats;
+    }
+
+    /**
+     * Adds a finished turn to the statistics and passes it on. Call it on
+     * every result that {@code submitAnswer} or {@code submitTimeout} returns.
+     *
+     * @param result the turn that just ended.
+     * @return the same result.
+     */
+    protected TurnResult record(TurnResult result) {
+        stats.recordAnswer(result);
+        return result;
     }
 
     /**

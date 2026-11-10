@@ -1,6 +1,7 @@
 package com.neurolink.cosmicquest.console;
 
 import com.neurolink.cosmicquest.logic.DamageCalculator;
+import com.neurolink.cosmicquest.logic.MatchStats;
 import com.neurolink.cosmicquest.model.Entity;
 import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
 import com.neurolink.cosmicquest.model.Player;
@@ -171,6 +172,53 @@ public class ConsoleRenderer {
      */
     public void showHit(String attacker, String target, int damage) {
         out.printf("%s hits %s for %d damage!%n", attacker, target, damage);
+    }
+
+    /**
+     * Prints the end-of-mission debrief: the outcome, stars, totals, and
+     * every missed question with the player's answer and the right one.
+     *
+     * @param won true if the battle was won.
+     * @param stars the stars earned, 0 to 3.
+     * @param score the player's score.
+     * @param stats the battle's statistics.
+     */
+    public void showDebrief(boolean won, int stars, int score, MatchStats stats) {
+        out.println(TITLE_LINE);
+        out.println(won ? " MISSION COMPLETE" : " MISSION FAILED");
+        out.println(" Stars " + starRow(stars));
+        out.printf(" Correct %d/%d (%d%%)   Damage dealt %d, taken %d   Score %d%n",
+                stats.getCorrectAnswers(), stats.getTotalAnswers(), stats.getAccuracyPercent(),
+                stats.getDamageDealt(), stats.getDamageTaken(), score);
+        List<MatchStats.Miss> misses = stats.getMisses();
+        if (misses.isEmpty()) {
+            out.println(" No questions missed.");
+        }
+        for (int i = 0; i < misses.size(); i++) {
+            MatchStats.Miss miss = misses.get(i);
+            String answer = miss.getPlayerAnswer().isBlank() ? "(no answer)" : miss.getPlayerAnswer();
+            out.printf(" %d. %s%n", i + 1, miss.getQuestion().getQuestionText());
+            out.println("    Your answer:    " + answer);
+            out.println("    Correct answer: " + miss.getQuestion().getCorrectAnswer());
+        }
+        out.println(TITLE_LINE);
+    }
+
+    /**
+     * Builds a row of stars such as {@code [*] [*] [ ]}, in plain ASCII.
+     *
+     * @param stars the stars earned, 0 to 3.
+     * @return the star row.
+     */
+    public static String starRow(int stars) {
+        StringBuilder row = new StringBuilder();
+        for (int i = 0; i < MatchStats.MAX_STARS; i++) {
+            row.append(i < stars ? "[*]" : "[ ]");
+            if (i < MatchStats.MAX_STARS - 1) {
+                row.append(' ');
+            }
+        }
+        return row.toString();
     }
 
     /**
