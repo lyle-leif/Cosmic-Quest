@@ -2,11 +2,17 @@ package com.neurolink.cosmicquest.logic;
 
 import com.neurolink.cosmicquest.model.EnumerationQuestion;
 import com.neurolink.cosmicquest.model.Entity;
+import com.neurolink.cosmicquest.model.Player;
 import com.neurolink.cosmicquest.model.Question;
 import com.neurolink.cosmicquest.model.QuestionType;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The shared skeleton of every battle. It owns the alien, the question pool
@@ -33,10 +39,15 @@ public abstract class BattleMode {
     protected final Entity entity;
     protected final QuestionGenerator generator;
     protected final QuestionPool questionPool;
+    protected final Random random;
     protected BattleState state = BattleState.QUESTION;
     protected int currentTurn;
     protected Question currentQuestion;
     protected boolean doubleDamageNext;
+
+    private final Map<Player, PowerUpInventory> inventories = new IdentityHashMap<>();
+    private String hint;
+    private Set<Integer> hiddenOptions = Set.of();
 
     /**
      * Prepares a battle against one alien. The battle starts with
@@ -58,6 +69,7 @@ public abstract class BattleMode {
         }
         this.entity = entity;
         this.generator = generator;
+        this.random = random;
         this.questionPool = new QuestionPool(makeQuestions(), random);
     }
 
@@ -159,6 +171,69 @@ public abstract class BattleMode {
     }
 
     /**
+     * Returns a player's power-up slots, creating empty ones the first time.
+     *
+     * @param player the player.
+     * @return that player's inventory.
+     * @throws IllegalArgumentException if player is null.
+     */
+    public PowerUpInventory getInventory(Player player) {
+        if (player == null) {
+            throw new IllegalArgumentException("The player must not be null.");
+        }
+        return inventories.computeIfAbsent(player, p -> new PowerUpInventory());
+    }
+
+    /**
+     * Uses one of a player's power-ups. Allowed only while a question is
+     * waiting, before answering; it does not use up the turn.
+     *
+     * @param player the player using it.
+     * @param slot the slot, from 0.
+     * @return the power-up that was used.
+     * @throws IllegalStateException if no question is waiting, or the slot is locked.
+     * @throws IllegalArgumentException if the slot is empty.
+     */
+    public PowerUp usePowerUp(Player player, int slot) {
+        requireAwaitingAnswer();
+        return getInventory(player).use(slot, player, this);
+    }
+
+    /** Returns the hint for the current question, or null if none was used. */
+    public String getHint() {
+        return hint;
+    }
+
+    /**
+     * Returns the multiple choice options a Hint has ruled out (0 is A), so
+     * the screen can hide them. Empty when no Hint was used.
+     */
+    public Set<Integer> getHiddenOptions() {
+        return hiddenOptions;
+    }
+
+    /** Arms Double Damage for the next hit that deals damage. Used by {@link DoubleDamage}. */
+    void activateDoubleDamage() {
+        doubleDamageNext = true;
+    }
+
+    /** Stores a hint for the current question. Used by {@link Hint}. */
+    void setHint(String text, Set<Integer> hidden) {
+        hint = text;
+        hiddenOptions = Collections.unmodifiableSet(new TreeSet<>(hidden));
+    }
+
+    /**
+     * Counts down every player's power-up locks by one turn. Call once per
+     * answered turn, before any new lock is added.
+     */
+    protected void tickPowerUpLocks() {
+        for (PowerUpInventory inventory : inventories.values()) {
+            inventory.tickLocks();
+        }
+    }
+
+    /**
      * Throws unless a question is waiting for an answer. Call this first in
      * {@code submitAnswer} and {@code submitTimeout}.
      *
@@ -213,8 +288,13 @@ public abstract class BattleMode {
         return damage;
     }
 
-    /** Takes the next question, refilling the pool first if it is empty. */
+    /**
+     * Takes the next question, refilling the pool first if it is empty. Any
+     * hint belonged to the previous question, so it is cleared.
+     */
     private Question drawQuestion() {
+        hint = null;
+        hiddenOptions = Set.of();
         if (!questionPool.hasNext()) {
             questionPool.addQuestions(makeQuestions());
         }

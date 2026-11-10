@@ -23,6 +23,9 @@ import java.util.Random;
  */
 public class SoloBossBattle extends BattleMode {
 
+    /** A power-up is earned on every streak that is a multiple of this. */
+    public static final int REWARD_EVERY_STREAK = 3;
+
     private static final double FULL_MATCH = 1.0;
     private static final double NO_MATCH = 0.0;
 
@@ -64,9 +67,27 @@ public class SoloBossBattle extends BattleMode {
         return player;
     }
 
+    /** Returns the player's power-up slots. */
+    public PowerUpInventory getInventory() {
+        return getInventory(player);
+    }
+
+    /**
+     * Uses one of the player's power-ups before answering.
+     *
+     * @param slot the slot, from 0.
+     * @return the power-up that was used.
+     * @throws IllegalStateException if no question is waiting, or the slot is locked.
+     * @throws IllegalArgumentException if the slot is empty.
+     */
+    public PowerUp usePowerUp(int slot) {
+        return usePowerUp(player, slot);
+    }
+
     @Override
     public TurnResult submitAnswer(String answer) {
         requireAwaitingAnswer();
+        tickPowerUpLocks();
         double ratio = scoreAnswer(currentQuestion, answer);
         if (ratio >= FULL_MATCH) {
             return resolveCorrect(answer);
@@ -77,16 +98,33 @@ public class SoloBossBattle extends BattleMode {
     @Override
     public TurnResult submitTimeout() {
         requireAwaitingAnswer();
+        tickPowerUpLocks();
         return resolveMiss(null, NO_MATCH, true);
     }
 
-    /** Streak first (D8), then the hit; WON if the alien falls. */
+    /**
+     * Streak first (D8), then the hit; every 3rd streak earns a power-up.
+     * WON if the alien falls.
+     */
     private TurnResult resolveCorrect(String answer) {
         player.increaseStreak();
         int dealt = hitEntity(player.getStreak(), FULL_MATCH);
-        // S06 task 9: every 3rd streak grants a random power-up here.
+        PowerUp earned = rewardStreak();
         state = entity.isDefeated() ? BattleState.WON : BattleState.PLAYER_ATTACK;
-        return new TurnResult(currentQuestion, answer, true, false, FULL_MATCH, dealt, 0, state);
+        return new TurnResult(currentQuestion, answer, true, false, FULL_MATCH, dealt, 0, state, earned);
+    }
+
+    /**
+     * Gives a random power-up on every 3rd streak, if a slot is free.
+     *
+     * @return the power-up earned, or null if none (wrong streak or full slots).
+     */
+    private PowerUp rewardStreak() {
+        if (player.getStreak() % REWARD_EVERY_STREAK != 0) {
+            return null;
+        }
+        PowerUp reward = PowerUp.random(random);
+        return getInventory().add(reward) ? reward : null;
     }
 
     /**
@@ -103,6 +141,7 @@ public class SoloBossBattle extends BattleMode {
             state = BattleState.WON;
         } else {
             taken = strikePlayer(itemsMissed(question, ratio));
+            getInventory().lockRandomSlot(random, entity.getPowerUpLockTurns());
             state = player.isDefeated() ? BattleState.LOST : BattleState.ENEMY_ATTACK;
         }
         return new TurnResult(question, answer, false, timedOut, ratio, dealt, taken, state);

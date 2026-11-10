@@ -17,6 +17,25 @@ public final class TurnResult {
     private final int damageDealt;
     private final int damageTaken;
     private final BattleState newState;
+    private final PowerUp powerUpEarned;
+
+    /**
+     * Records one turn in which no power-up was earned.
+     *
+     * @param question the question that was asked.
+     * @param playerAnswer what the player typed; null is stored as "" (for a timeout).
+     * @param correct true if the answer was fully right.
+     * @param timedOut true if the player ran out of time.
+     * @param matchRatio how much of the answer was right, from 0.0 to 1.0.
+     * @param damageDealt damage the player dealt to the alien.
+     * @param damageTaken damage the player took.
+     * @param newState the battle state after this turn.
+     * @throws IllegalArgumentException if a value is invalid (see the full constructor).
+     */
+    public TurnResult(Question question, String playerAnswer, boolean correct, boolean timedOut,
+            double matchRatio, int damageDealt, int damageTaken, BattleState newState) {
+        this(question, playerAnswer, correct, timedOut, matchRatio, damageDealt, damageTaken, newState, null);
+    }
 
     /**
      * Records one turn.
@@ -30,11 +49,13 @@ public final class TurnResult {
      * @param damageDealt damage the player dealt to the alien.
      * @param damageTaken damage the player took.
      * @param newState the battle state after this turn.
+     * @param powerUpEarned the power-up earned this turn, or null for none.
      * @throws IllegalArgumentException if question or newState is null, a damage
      *         is negative, or the ratio is outside 0.0 to 1.0.
      */
     public TurnResult(Question question, String playerAnswer, boolean correct, boolean timedOut,
-            double matchRatio, int damageDealt, int damageTaken, BattleState newState) {
+            double matchRatio, int damageDealt, int damageTaken, BattleState newState,
+            PowerUp powerUpEarned) {
         if (question == null || newState == null) {
             throw new IllegalArgumentException("Question and new state must not be null.");
         }
@@ -52,6 +73,12 @@ public final class TurnResult {
         this.damageDealt = damageDealt;
         this.damageTaken = damageTaken;
         this.newState = newState;
+        this.powerUpEarned = powerUpEarned;
+    }
+
+    /** Returns the power-up earned this turn, or null if none was earned. */
+    public PowerUp getPowerUpEarned() {
+        return powerUpEarned;
     }
 
     /** Returns the question that was asked. */

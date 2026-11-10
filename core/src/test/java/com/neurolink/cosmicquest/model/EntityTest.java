@@ -73,6 +73,14 @@ class EntityTest {
     }
 
     @Test
+    void onlyStarWeaverLocksPowerUps() {
+        assertEquals(2, new StarWeaver(1).getPowerUpLockTurns());
+        assertEquals(0, new VoidBrute(1).getPowerUpLockTurns());
+        assertEquals(0, new NebulaLich(1).getPowerUpLockTurns());
+        assertEquals(0, new LunarBeast(1).getPowerUpLockTurns());
+    }
+
+    @Test
     void strikeRejectsNegativeNumbers() {
         assertThrows(IllegalArgumentException.class, () -> new VoidBrute(1).getStrikeDamage(-1, 0));
         assertThrows(IllegalArgumentException.class, () -> new LunarBeast(1).getStrikeDamage(1, -1));
