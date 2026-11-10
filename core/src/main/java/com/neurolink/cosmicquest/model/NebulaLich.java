@@ -7,6 +7,7 @@ public class NebulaLich extends Entity {
 
     private static final int[] HP = {70, 120, 180};
     private static final int[] ATTACK = {9, 13, 19};
+    private static final int HEX_BOLT_LEVEL = 3;
 
     /**
      * Creates a Nebula Lich at the given level, with full hull.
@@ -36,6 +37,12 @@ public class NebulaLich extends Entity {
     @Override
     public QuestionType getQuestionType() {
         return QuestionType.MULTIPLE_CHOICE;
+    }
+
+    /** Hex Bolt: at level 3, a missed question comes back with its options reshuffled. */
+    @Override
+    public boolean reshufflesChoices() {
+        return getLevel() >= HEX_BOLT_LEVEL;
     }
 
     /** Returns a description of this alien's special move. */

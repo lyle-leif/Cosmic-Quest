@@ -98,6 +98,17 @@ public abstract class Entity implements Combatant {
     }
 
     /**
+     * Whether this alien's strike reshuffles the options of the multiple
+     * choice question the player just missed. Only a level 3 Nebula Lich
+     * does (Hex Bolt).
+     *
+     * @return true if missed questions get new option letters.
+     */
+    public boolean reshufflesChoices() {
+        return false;
+    }
+
+    /**
      * Gets the type of question this entity asks.
      *
      * @return the question type

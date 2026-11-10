@@ -2,12 +2,15 @@ package com.neurolink.cosmicquest.console;
 
 import com.neurolink.cosmicquest.logic.DamageCalculator;
 import com.neurolink.cosmicquest.logic.MatchStats;
+import com.neurolink.cosmicquest.logic.PowerUp;
+import com.neurolink.cosmicquest.logic.PowerUpInventory;
 import com.neurolink.cosmicquest.model.Entity;
 import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
 import com.neurolink.cosmicquest.model.Player;
 import com.neurolink.cosmicquest.model.Question;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Prints everything the player sees in the console version: the HUD,
@@ -121,13 +124,25 @@ public class ConsoleRenderer {
      * @param question the question to show.
      */
     public void showQuestion(Question question) {
+        showQuestion(question, Set.of());
+    }
+
+    /**
+     * Prints a question, leaving out the multiple choice options a Hint has
+     * ruled out. The letters of the other options stay the same.
+     *
+     * @param question the question to show.
+     * @param hiddenOptions option positions to hide, 0 is A.
+     */
+    public void showQuestion(Question question, Set<Integer> hiddenOptions) {
         out.println();
         out.printf("[%s] Difficulty %d/3%n", typeLabel(question), question.getDifficulty());
         out.println(question.getQuestionText());
         if (question instanceof MultipleChoiceQuestion choice) {
             List<String> options = choice.getOptions();
             for (int i = 0; i < options.size(); i++) {
-                out.printf("  %c) %s%n", optionLetter(i), options.get(i));
+                String text = hiddenOptions.contains(i) ? "(ruled out)" : options.get(i);
+                out.printf("  %c) %s%n", optionLetter(i), text);
             }
         }
         out.println("(" + instruction(question) + ")");
@@ -219,6 +234,46 @@ public class ConsoleRenderer {
             }
         }
         return row.toString();
+    }
+
+    /**
+     * Prints the player's power-up slots, such as
+     * {@code Power-ups: /1 Shield  /2 Hint (locked 2)}.
+     *
+     * @param inventory the player's slots.
+     */
+    public void showPowerUps(PowerUpInventory inventory) {
+        List<PowerUp> powerUps = inventory.getPowerUps();
+        if (powerUps.isEmpty()) {
+            out.println("Power-ups: none yet (one every 3 right answers in a row)");
+            return;
+        }
+        StringBuilder line = new StringBuilder("Power-ups:");
+        for (int i = 0; i < powerUps.size(); i++) {
+            line.append("  /").append(i + 1).append(' ').append(powerUps.get(i).getName());
+            if (inventory.isLocked(i)) {
+                line.append(" (locked ").append(inventory.getLockedTurns(i)).append(')');
+            }
+        }
+        out.println(line);
+    }
+
+    /**
+     * Prints the rules and the battle commands.
+     *
+     * @param secondsPerAnswer the time limit for each answer.
+     */
+    public void showHowToPlay(int secondsPerAnswer) {
+        out.println();
+        out.println("HOW TO PLAY");
+        out.println(" - Pick an alien and a level. Each alien asks one type of question.");
+        out.println(" - A right answer hits the alien. Answers in a row add up to +50% damage.");
+        out.println(" - A wrong answer lets the alien strike, and the question comes back later.");
+        out.println(" - Answer within " + secondsPerAnswer + " seconds, or it counts as a miss.");
+        out.println(" - Every 3 right answers in a row earn a power-up (up to 3).");
+        out.println("Battle commands:");
+        out.println("  /1, /2, /3  use a power-up before you answer");
+        out.println("  /quit       give up the battle");
     }
 
     /**

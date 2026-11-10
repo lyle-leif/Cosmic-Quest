@@ -25,3 +25,14 @@ test {
     exceptionFormat "full"
   }
 }
+
+// Plays the console version: .\gradlew core:runConsole -q --console=plain
+// standardInput passes the keyboard through; without it the Scanner gets no input.
+tasks.register('runConsole', JavaExec) {
+  group = 'application'
+  description = 'Runs the console version of Cosmic Quest.'
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'com.neurolink.cosmicquest.console.ConsoleMain'
+  standardInput = System.in
+  workingDir = rootProject.projectDir
+}

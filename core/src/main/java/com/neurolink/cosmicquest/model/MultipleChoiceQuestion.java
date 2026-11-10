@@ -3,6 +3,7 @@ package com.neurolink.cosmicquest.model;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 /**
  * A question with four options, A to D. The player can answer with the
@@ -13,8 +14,8 @@ public class MultipleChoiceQuestion extends Question {
     private static final int OPTION_COUNT = 4;
     private static final char FIRST_LETTER = 'a';
 
-    private final List<String> options;
-    private final int correctIndex;
+    private List<String> options;
+    private int correctIndex;
 
     /**
      * Creates a multiple choice question.
@@ -83,6 +84,25 @@ public class MultipleChoiceQuestion extends Question {
             }
         }
         return answer.equals(normalize(getCorrectAnswer()));
+    }
+
+    /**
+     * Puts the options in a new random order and moves the correct index
+     * with them. Used by the Nebula Lich's Hex Bolt, so a missed question
+     * comes back with its letters changed.
+     *
+     * @param random the source of randomness; tests pass a fixed seed.
+     * @throws IllegalArgumentException if random is null.
+     */
+    public void shuffleOptions(Random random) {
+        if (random == null) {
+            throw new IllegalArgumentException("Random must not be null.");
+        }
+        String correct = options.get(correctIndex);
+        List<String> shuffled = new ArrayList<>(options);
+        Collections.shuffle(shuffled, random);
+        options = Collections.unmodifiableList(shuffled);
+        correctIndex = shuffled.indexOf(correct);
     }
 
     /** Returns MULTIPLE_CHOICE. */

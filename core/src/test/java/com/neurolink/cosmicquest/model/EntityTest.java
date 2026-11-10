@@ -94,4 +94,11 @@ class EntityTest {
         assertEquals(100 - weaver.getAttackPower(), player.getHp());
         assertFalse(player.isDefeated());
     }
+
+    @Test
+    void onlyALevelThreeNebulaLichReshufflesChoices() {
+        assertTrue(new NebulaLich(3).reshufflesChoices());
+        assertFalse(new NebulaLich(2).reshufflesChoices());
+        assertFalse(new VoidBrute(3).reshufflesChoices());
+    }
 }
