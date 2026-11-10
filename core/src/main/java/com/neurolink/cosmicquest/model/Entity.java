@@ -88,6 +88,16 @@ public abstract class Entity implements Combatant {
     }
 
     /**
+     * How many turns this alien's strike locks one of the player's power-ups.
+     * Most aliens do not lock anything; the Star Weaver overrides this.
+     *
+     * @return the number of turns, 0 for no lock.
+     */
+    public int getPowerUpLockTurns() {
+        return 0;
+    }
+
+    /**
      * Gets the type of question this entity asks.
      *
      * @return the question type

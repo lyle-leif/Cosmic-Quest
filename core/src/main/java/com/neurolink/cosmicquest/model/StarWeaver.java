@@ -7,6 +7,7 @@ public class StarWeaver extends Entity {
 
     private static final int[] HP = {50, 90, 140};
     private static final int[] ATTACK = {10, 14, 20};
+    private static final int THREAD_BIND_TURNS = 2;
 
     /**
      * Creates a Star Weaver at the given level, with full hull.
@@ -42,5 +43,15 @@ public class StarWeaver extends Entity {
     @Override
     public String getSpecialMove() {
         return "Thread Bind: locks one power-up for 2 turns.";
+    }
+
+    /**
+     * Thread Bind: each strike locks one of the player's power-ups for 2 turns.
+     *
+     * @return 2.
+     */
+    @Override
+    public int getPowerUpLockTurns() {
+        return THREAD_BIND_TURNS;
     }
 }
