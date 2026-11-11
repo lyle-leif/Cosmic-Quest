@@ -1,11 +1,17 @@
 package com.neurolink.cosmicquest.console;
 
+import com.neurolink.cosmicquest.ai.AiClient;
+import com.neurolink.cosmicquest.ai.AiConfig;
+import com.neurolink.cosmicquest.ai.JavaHttpTransport;
+import com.neurolink.cosmicquest.logic.AiQuestionProvider;
 import com.neurolink.cosmicquest.logic.BattleMode;
 import com.neurolink.cosmicquest.logic.BattleState;
 import com.neurolink.cosmicquest.logic.InvalidLessonFormatException;
 import com.neurolink.cosmicquest.logic.LessonData;
+import com.neurolink.cosmicquest.logic.LocalProvider;
 import com.neurolink.cosmicquest.logic.PowerUp;
 import com.neurolink.cosmicquest.logic.QuestionGenerator;
+import com.neurolink.cosmicquest.logic.QuestionProvider;
 import com.neurolink.cosmicquest.logic.SoloBossBattle;
 import com.neurolink.cosmicquest.logic.SquadBossBattle;
 import com.neurolink.cosmicquest.logic.TurnResult;
@@ -80,19 +86,30 @@ public class ConsoleMain {
     private final ConsoleRenderer renderer;
     private final Random random;
     private final LongSupplier clock;
+    private final AiClient ai;
     private QuestionGenerator generator;
+    private LessonData lesson;
     private String lessonName;
 
     /**
-     * Starts the console game with the default lesson.
+     * Starts the console game with the default lesson. AI questions are on
+     * when config.properties holds at least one key.
      *
      * @param args not used.
      */
     public static void main(String[] args) {
+        AiClient ai = AiConfig.load(configFile()).buildChain(new JavaHttpTransport()).orElse(null);
         ConsoleMain game = new ConsoleMain(new Scanner(System.in), new ConsoleRenderer(),
-                new Random(), System::nanoTime);
+                new Random(), System::nanoTime, ai);
         game.loadDefaultLesson();
         game.run();
+    }
+
+    /** Finds config.properties in the project folder, or one level up when started from core/. */
+    private static Path configFile() {
+        Path here = Path.of(AiConfig.FILE_NAME);
+        Path parent = Path.of("..", AiConfig.FILE_NAME);
+        return Files.isRegularFile(here) || !Files.isRegularFile(parent) ? here : parent;
     }
 
     /**
@@ -106,6 +123,20 @@ public class ConsoleMain {
      * @throws IllegalArgumentException if an argument is null.
      */
     public ConsoleMain(Scanner in, ConsoleRenderer renderer, Random random, LongSupplier clock) {
+        this(in, renderer, random, clock, null);
+    }
+
+    /**
+     * Prepares the game with AI questions. Tests pass a fake AI client.
+     *
+     * @param in the only Scanner in the program (D3).
+     * @param renderer prints everything.
+     * @param random shuffles questions; tests pass a fixed seed.
+     * @param clock the current time in nanoseconds, for the answer timer (D2).
+     * @param ai the AI to ask for questions, or null for local questions only.
+     * @throws IllegalArgumentException if an argument other than ai is null.
+     */
+    public ConsoleMain(Scanner in, ConsoleRenderer renderer, Random random, LongSupplier clock, AiClient ai) {
         if (in == null || renderer == null || random == null || clock == null) {
             throw new IllegalArgumentException("Scanner, renderer, random and clock must not be null.");
         }
@@ -113,6 +144,7 @@ public class ConsoleMain {
         this.renderer = renderer;
         this.random = random;
         this.clock = clock;
+        this.ai = ai;
     }
 
     /**
@@ -120,6 +152,9 @@ public class ConsoleMain {
      */
     public void run() {
         renderer.showTitle();
+        renderer.showMessage(ai == null
+                ? "AI questions: off (add a key to config.properties to turn them on)"
+                : "AI questions: on (" + ai.getName() + ")");
         try {
             boolean running = true;
             while (running) {
@@ -164,6 +199,7 @@ public class ConsoleMain {
                 return false;
             }
             generator = loaded;
+            lesson = data;
             lessonName = path.getFileName() == null ? path.toString() : path.getFileName().toString();
             renderer.showMessage("Loaded lesson: " + lessonName);
             return true;
@@ -225,9 +261,9 @@ public class ConsoleMain {
         Player player = new Player(readName("Pilot name", DEFAULT_NAME));
         IntFunction<Entity> alien = chooseAlien();
         int level = readChoice("CHOOSE A LEVEL", LEVELS);
-        SoloBossBattle battle = new SoloBossBattle(player, alien.apply(level), generator, random);
+        SoloBossBattle battle = new SoloBossBattle(player, alien.apply(level), newProvider(), random);
         battle.startBattle();
-        announce(battle.getEntity());
+        announce(battle);
 
         while (!battle.isOver()) {
             playTurn(battle, player, null);
@@ -251,9 +287,9 @@ public class ConsoleMain {
             addPilot(team, number);
         }
         Entity boss = chooseAlien().apply(SquadBossBattle.BOSS_LEVEL);
-        SquadBossBattle battle = new SquadBossBattle(team, boss, generator, random);
+        SquadBossBattle battle = new SquadBossBattle(team, boss, newProvider(), random);
         battle.startBattle();
-        announce(boss);
+        announce(battle);
 
         while (!battle.isOver()) {
             playTurn(battle, battle.getCurrentPlayer(), team);
@@ -275,11 +311,35 @@ public class ConsoleMain {
         }
     }
 
-    /** Shows the alien that appears and its special move. */
-    private void announce(Entity entity) {
+    /**
+     * Makes the question source for a new battle: AI with a local fallback
+     * when AI is on, otherwise local questions only.
+     */
+    private QuestionProvider newProvider() {
+        LocalProvider local = new LocalProvider(generator);
+        if (ai == null) {
+            return local;
+        }
+        renderer.showMessage("Asking " + ai.getName() + " for questions...");
+        return new AiQuestionProvider(ai, lesson, local);
+    }
+
+    /**
+     * Shows the alien that appears and its special move, then, with AI on,
+     * where the questions came from (and why, if the AI could not help).
+     */
+    private void announce(BattleMode battle) {
+        Entity entity = battle.getEntity();
         renderer.showMessage("");
         renderer.showMessage(entity.getName() + " Lv " + entity.getLevel() + " appears! "
                 + entity.getSpecialMove());
+        if (ai != null) {
+            renderer.showMessage(battle.getQuestionStatus());
+            if (AiQuestionProvider.OFFLINE_STATUS.equals(battle.getQuestionStatus())
+                    && battle.getQuestionProblem() != null) {
+                renderer.showMessage("  (" + battle.getQuestionProblem() + ")");
+            }
+        }
     }
 
     /** Shows the debrief and waits for Enter before going back to the menu. */

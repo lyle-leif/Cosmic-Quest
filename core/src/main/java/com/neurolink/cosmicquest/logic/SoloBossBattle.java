@@ -38,10 +38,30 @@ public class SoloBossBattle extends BattleMode {
      */
     public SoloBossBattle(Player player, Entity entity, QuestionGenerator generator, Random random) {
         super(entity, generator, random);
+        this.player = checkPlayer(player);
+    }
+
+    /**
+     * Prepares a solo battle whose questions come from a provider, such as
+     * AI with a local fallback.
+     *
+     * @param player the player.
+     * @param entity the alien to fight.
+     * @param provider supplies the questions.
+     * @param random shuffles the question pool.
+     * @throws IllegalArgumentException if an argument is null or the lesson
+     *         cannot make questions of the alien's type.
+     */
+    public SoloBossBattle(Player player, Entity entity, QuestionProvider provider, Random random) {
+        super(entity, provider, random);
+        this.player = checkPlayer(player);
+    }
+
+    private static Player checkPlayer(Player player) {
         if (player == null) {
             throw new IllegalArgumentException("The player must not be null.");
         }
-        this.player = player;
+        return player;
     }
 
     /** Returns the player. */
