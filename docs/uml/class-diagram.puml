@@ -1,8 +1,12 @@
 @startuml
-title Cosmic Quest Class Diagram v1
+title Cosmic Quest Class Diagram v2 (console version, S08)
 skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
 left to right direction
-' <<S03>> and similar mark classes that are planned for that session.
+' v2 matches the code at the end of S08. Getters, private helpers and
+' constructors that only set fields are left out to keep the picture readable.
+' D1: power-ups live in logic, so model never imports logic.
+' D9: the ai module knows nothing about the game; core depends on ai.
 
 package model {
 
@@ -27,37 +31,39 @@ package model {
         - maxHp: int
         - attackPower: int
         # Entity(name: String, level: int, hp: int, maxHp: int, attackPower: int)
-        + takeDamage(amount: int): void
-        + isDefeated(): boolean
         + attack(target: Combatant): void
+        + getStrikeDamage(turn: int, itemsMissed: int): int
+        + getPowerUpLockTurns(): int
+        + reshufflesChoices(): boolean
         + {abstract} getQuestionType(): QuestionType
         + {abstract} getSpecialMove(): String
     }
 
     class VoidBrute extends Entity {
         + VoidBrute(level: int)
+        + getStrikeDamage(turn: int, itemsMissed: int): int
     }
     class StarWeaver extends Entity {
         + StarWeaver(level: int)
+        + getPowerUpLockTurns(): int
     }
     class NebulaLich extends Entity {
         + NebulaLich(level: int)
+        + reshufflesChoices(): boolean
     }
     class LunarBeast extends Entity {
         + LunarBeast(level: int)
+        + getStrikeDamage(turn: int, itemsMissed: int): int
     }
 
     class Player implements Combatant {
         - {static} STARTING_HP: int = 100
         - name: String
-        - maxHp: int
         - hp: int
         - score: int
         - streak: int
         - shieldTurns: int
         + Player(name: String)
-        + takeDamage(amount: int): void
-        + isDefeated(): boolean
         + heal(amount: int): void
         + activateShield(turns: int): void
         + addScore(points: int): void
@@ -65,7 +71,20 @@ package model {
         + resetStreak(): void
     }
 
-    abstract class Question <<S03>> {
+    class Team {
+        + {static} MIN_PLAYERS: int = 2
+        + {static} MAX_PLAYERS: int = 3
+        - name: String
+        - players: List<Player>
+        - turnIndex: int
+        + addPlayer(p: Player): void
+        + isDefeated(): boolean
+        + getNextAlivePlayer(): Player
+        + getTotalHp(): int
+        + getTotalScore(): int
+    }
+
+    abstract class Question {
         - questionText: String
         - correctAnswer: String
         - difficulty: int
@@ -75,145 +94,295 @@ package model {
         # {static} normalize(s: String): String
     }
 
-    class IdentificationQuestion <<S03>> extends Question
-    class MultipleChoiceQuestion <<S03>> extends Question {
+    class IdentificationQuestion extends Question
+    class MultipleChoiceQuestion extends Question {
         - options: List<String>
         - correctIndex: int
+        + shuffleOptions(random: Random): void
     }
-    class EnumerationQuestion <<S04>> extends Question {
+    class EnumerationQuestion extends Question {
         - items: List<String>
         + getMatchRatio(input: String): double
     }
-    class ReasoningQuestion <<S04>> extends Question {
-        - {static} KEYWORD_PASS_RATIO: double = 0.6
+    class ReasoningQuestion extends Question {
+        + {static} KEYWORD_PASS_RATIO: double = 0.6
         - keywords: List<String>
-    }
-
-    class Team <<S07>> {
-        - name: String
-        - players: List<Player>
-        + addPlayer(p: Player): void
-        + isDefeated(): boolean
-        + getNextAlivePlayer(): Player
+        + getKeywordRatio(input: String): double
     }
 }
 
 package logic {
 
-    class Term <<S03>> {
+    class Term {
         - term: String
         - definition: String
     }
 
-    class LessonData <<S03>> {
+    class LessonData {
         - terms: List<Term>
         - enumerations: Map<String, List<String>>
     }
 
-    class TxtParser <<S03>> {
+    class TxtParser {
         + parseFile(path: Path): LessonData
     }
 
-    class QuestionGenerator <<S04>> {
-        - data: LessonData
-        + QuestionGenerator(data: LessonData)
-        + generateQuestions(count: int): List<Question>
+    class InvalidLessonFormatException <<checked exception>> {
+        - lineNumber: int
     }
 
-    class QuestionPool <<S05>> {
-        - questions: ArrayDeque<Question>
+    class QuestionGenerator {
+        - data: LessonData
+        - random: Random
+        + supports(type: QuestionType): boolean
+        + getSupportedTypes(): List<QuestionType>
+        + generateQuestions(count: int): List<Question>
+        + generate(type: QuestionType): Question
+    }
+
+    ' Strategy: where a battle's questions come from.
+    interface QuestionProvider {
+        + supports(type: QuestionType): boolean
+        + provide(type: QuestionType, count: int): List<Question>
+        + getStatus(): String
+    }
+
+    class LocalProvider implements QuestionProvider {
+        - generator: QuestionGenerator
+    }
+
+    class AiQuestionProvider implements QuestionProvider {
+        + {static} OFFLINE_STATUS: String
+        - client: AiClient
+        - local: LocalProvider
+        - status: String
+        - lastProblem: String
+        + getLastProblem(): String
+        ~ {static} convert(q: AiQuestion, type: QuestionType): Question
+    }
+
+    class QuestionPool {
+        - questions: Deque<Question>
         - missed: List<Question>
+        + addQuestions(list: List<Question>): void
         + getNextQuestion(): Question
         + recordMissedQuestion(q: Question): void
         + hasNext(): boolean
-        + getMissedQuestions(): List<Question>
     }
 
-    class DamageCalculator <<S05>> {
-        - {static} BASE_DAMAGE: int = 20
-        - {static} STREAK_BONUS: double = 0.10
-        - {static} MAX_STREAK_BONUS: double = 0.50
-        + playerDamage(difficulty: int, streak: int): int
-        + enemyDamage(e: Entity): int
+    class DamageCalculator <<utility>> {
+        + {static} BASE_DAMAGE: int = 20
+        + {static} STREAK_BONUS_PERCENT: int = 10
+        + {static} MAX_STREAK_BONUS_PERCENT: int = 50
+        + {static} playerDamage(difficulty: int, streak: int): int
+        + {static} enumerationDamage(difficulty: int, streak: int, ratio: double): int
+        + {static} enemyDamage(e: Entity): int
     }
 
-    enum BattleState <<S06>> {
+    enum BattleState {
         QUESTION
         PLAYER_ATTACK
         ENEMY_ATTACK
         WON
         LOST
+        + isFinished(): boolean
     }
 
-    class TurnResult <<S06>> {
+    class TurnResult {
+        - question: Question
+        - playerAnswer: String
         - correct: boolean
+        - timedOut: boolean
+        - matchRatio: double
         - damageDealt: int
         - damageTaken: int
         - newState: BattleState
+        - powerUpEarned: PowerUp
     }
 
-    abstract class BattleMode <<S06>> {
-        - questionPool: QuestionPool
-        - entity: Entity
-        - currentTurn: int
-        - state: BattleState
+    ' Template method: the shared turn rules live here; subclasses say
+    ' whose turn it is and when everyone is down.
+    abstract class BattleMode {
+        + {static} REWARD_EVERY_STREAK: int = 3
+        # entity: Entity
+        # provider: QuestionProvider
+        # questionPool: QuestionPool
+        # state: BattleState
+        # currentTurn: int
         # stats: MatchStats
+        - inventories: Map<Player, PowerUpInventory>
         + startBattle(): void
-        + getCurrentQuestion(): Question
-        + {abstract} submitAnswer(answer: String): TurnResult
         + nextTurn(): void
         + endBattle(): void
+        + getCurrentQuestion(): Question
+        + usePowerUp(p: Player, slot: int): PowerUp
+        + getQuestionStatus(): String
+        + {abstract} submitAnswer(answer: String): TurnResult
+        + {abstract} submitTimeout(): TurnResult
+        # answerFor(p: Player, answer: String): TurnResult
+        # timeoutFor(p: Player): TurnResult
+        # {abstract} allPlayersDefeated(): boolean
     }
 
-    ' D1: power-ups live in logic so model never imports logic.
-    abstract class PowerUp <<S06>> {
-        - name: String
-        - description: String
-        + {abstract} apply(p: Player, b: BattleMode): void
-    }
-    class Shield <<S06>> extends PowerUp
-    class Hint <<S06>> extends PowerUp
-    class DoubleDamage <<S06>> extends PowerUp
-    class Repair <<S06>> extends PowerUp
-
-    class PowerUpInventory <<S06>> {
-        - {static} MAX_SLOTS: int = 3
-        - slots: List<PowerUp>
-        + add(p: PowerUp): boolean
-        + use(index: int, player: Player, battle: BattleMode): void
-        + isFull(): boolean
-        + getPowerUps(): List<PowerUp>
-    }
-
-    class SoloBossBattle <<S06>> extends BattleMode {
+    class SoloBossBattle extends BattleMode {
         - player: Player
         + submitAnswer(answer: String): TurnResult
+        + submitTimeout(): TurnResult
+        + getStars(): int
     }
 
-    class SquadBossBattle <<S07>> extends BattleMode {
+    class SquadBossBattle extends BattleMode {
+        + {static} BOSS_LEVEL: int = 3
         - team: Team
+        - currentPlayer: Player
         + submitAnswer(answer: String): TurnResult
+        + submitTimeout(): TurnResult
+        + getStars(): int
     }
 
-    class MatchStats <<S07>> {
+    abstract class PowerUp {
+        - name: String
+        - description: String
+        + {static} random(r: Random): PowerUp
+        + {abstract} apply(p: Player, b: BattleMode): void
+    }
+    class Shield extends PowerUp
+    class Hint extends PowerUp
+    class DoubleDamage extends PowerUp
+    class Repair extends PowerUp {
+        + {static} REPAIR_AMOUNT: int = 20
+    }
+
+    class PowerUpInventory {
+        + {static} MAX_SLOTS: int = 3
+        + add(p: PowerUp): boolean
+        + use(index: int, player: Player, battle: BattleMode): PowerUp
+        + lockRandomSlot(r: Random, turns: int): boolean
+        + tickLocks(): void
+        + isFull(): boolean
+    }
+
+    class MatchStats {
+        + {static} MAX_STARS: int = 3
         - correctAnswers: int
         - totalAnswers: int
         - damageDealt: int
         - damageTaken: int
-        - missed: List<Question>
-        - playerAnswers: List<String>
-        + recordAnswer(q: Question, answer: String, correct: boolean, damage: int): void
-        + getStars(): int
-        + displayResults(): String
+        - missed: Map<Question, String>
+        + recordAnswer(r: TurnResult): void
+        + getStars(won: boolean, hullLeft: int, maxHull: int): int
+        + getAccuracyPercent(): int
+        + getMisses(): List<Miss>
     }
 }
 
-package ai {
-    interface QuestionProvider <<S08>> {
-        + generate(data: LessonData): List<Question>
+package console {
+    class ConsoleMain {
+        + {static} ANSWER_TIME_LIMIT_SECONDS: int = 30
+        + {static} DEFAULT_LESSON: String
+        - in: Scanner
+        - clock: LongSupplier
+        - ai: AiClient
+        + {static} main(args: String[]): void
+        + run(): void
+        + loadLesson(path: Path): boolean
     }
-    class LocalProvider <<S08>> implements QuestionProvider
-    class GeminiProvider <<S08>> implements QuestionProvider
+
+    ' The only class that prints.
+    class ConsoleRenderer {
+        - out: PrintStream
+        + showTitle(): void
+        + showHud(p: Player, e: Entity): void
+        + showTeam(t: Team, current: Player): void
+        + showQuestion(q: Question, hidden: Set<Integer>): void
+        + showPowerUps(inv: PowerUpInventory): void
+        + showDebrief(won: boolean, stars: int, score: int, s: MatchStats): void
+        + showHowToPlay(seconds: int): void
+    }
+}
+
+package ai <<separate Gradle module>> {
+
+    enum AiQuestionKind {
+        IDENTIFICATION
+        MULTIPLE_CHOICE
+        ENUMERATION
+        REASONING
+    }
+
+    class AiRequest {
+        + {static} MAX_COUNT: int = 20
+        - terms: Map<String, String>
+        - lists: Map<String, List<String>>
+        - kind: AiQuestionKind
+        - count: int
+    }
+
+    class AiQuestion {
+        - kind: AiQuestionKind
+        - text: String
+        - answer: String
+        - options: List<String>
+        - items: List<String>
+        - keywords: List<String>
+    }
+
+    class AiException <<checked exception>>
+
+    interface AiClient {
+        + getName(): String
+        + generate(r: AiRequest): List<AiQuestion>
+    }
+
+    ' Tries each client in order; the first one that answers wins.
+    class AiChain implements AiClient {
+        - clients: List<AiClient>
+        - lastSource: String
+        + getLastSource(): String
+    }
+
+    ' Template method: send, check the status, read the text, parse.
+    abstract class HttpAiClient implements AiClient {
+        - name: String
+        - timeout: Duration
+        + generate(r: AiRequest): List<AiQuestion>
+        # {abstract} url(): String
+        # {abstract} headers(): Map<String, String>
+        # {abstract} requestBody(prompt: String): String
+        # {abstract} modelText(reply: JsonObject): String
+    }
+
+    class GeminiClient extends HttpAiClient {
+        + {static} DEFAULT_MODEL: String
+        - apiKey: String
+        - model: String
+    }
+
+    class OpenAiCompatibleClient extends HttpAiClient {
+        + {static} GROQ_URL: String
+        + {static} GROQ_DEFAULT_MODEL: String
+        - url: String
+        - apiKey: String
+        - model: String
+    }
+
+    interface HttpTransport {
+        + post(url: String, headers: Map<String, String>, body: String, timeout: Duration): Reply
+    }
+    class JavaHttpTransport implements HttpTransport
+
+    class AiConfig {
+        + {static} FILE_NAME: String = "config.properties"
+        + {static} load(path: Path): AiConfig
+        + buildChain(t: HttpTransport): Optional<AiChain>
+    }
+
+    class PromptBuilder <<package-private>> {
+        ~ {static} build(r: AiRequest): String
+    }
+    class AiQuestionParser <<package-private>> {
+        ~ {static} parse(text: String, kind: AiQuestionKind, max: int): List<AiQuestion>
+    }
 }
 
 ' Uses an enum
@@ -222,13 +391,19 @@ Question ..> QuestionType
 
 ' Lesson file to questions
 TxtParser ..> LessonData : creates
+TxtParser ..> InvalidLessonFormatException : throws
 LessonData *-- "*" Term : contains
 QuestionGenerator --> "1" LessonData : reads
 QuestionGenerator ..> Question : creates
+LocalProvider --> "1" QuestionGenerator : uses
+AiQuestionProvider --> "1" LocalProvider : tops up with
+AiQuestionProvider --> "1" AiClient : asks
+AiQuestionProvider ..> AiQuestion : converts
 QuestionPool o-- "*" Question : holds
 
 ' Battle
-BattleMode --> "1" QuestionPool
+BattleMode --> "1" QuestionProvider : gets questions
+BattleMode *-- "1" QuestionPool
 BattleMode --> "1" Entity : fights
 BattleMode --> "1" BattleState
 BattleMode *-- "1" MatchStats
@@ -236,13 +411,30 @@ BattleMode ..> DamageCalculator : uses
 BattleMode ..> TurnResult : returns
 SoloBossBattle --> "1" Player
 SquadBossBattle --> "1" Team
-Team o-- "1..3" Player
+Team o-- "2..3" Player
 BattleMode *-- "1..3" PowerUpInventory : one per player
 PowerUpInventory o-- "0..3" PowerUp : holds
 PowerUp ..> Player : changes
 PowerUp ..> BattleMode : changes
+MatchStats ..> TurnResult : records
 MatchStats --> "*" Question : missed
 
-' AI
-LocalProvider ..> QuestionGenerator : uses
+' Console
+ConsoleMain --> "1" ConsoleRenderer
+ConsoleMain ..> TxtParser : loads lessons
+ConsoleMain ..> BattleMode : plays
+ConsoleMain ..> AiConfig : reads keys
+
+' AI module
+AiChain o-- "1..*" AiClient : tries in order
+HttpAiClient --> "1" HttpTransport : sends with
+HttpAiClient ..> PromptBuilder
+HttpAiClient ..> AiQuestionParser
+HttpAiClient ..> AiException : throws
+AiClient ..> AiRequest
+AiClient ..> AiQuestion : returns
+AiQuestion ..> AiQuestionKind
+AiRequest ..> AiQuestionKind
+AiConfig ..> GeminiClient : builds
+AiConfig ..> OpenAiCompatibleClient : builds
 @enduml
