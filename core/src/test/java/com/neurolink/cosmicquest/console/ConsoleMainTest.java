@@ -4,12 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.neurolink.cosmicquest.ai.AiClient;
+import com.neurolink.cosmicquest.ai.AiException;
+import com.neurolink.cosmicquest.ai.AiQuestion;
+import com.neurolink.cosmicquest.ai.AiQuestionKind;
+import com.neurolink.cosmicquest.ai.AiRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.function.LongSupplier;
@@ -222,5 +229,65 @@ class ConsoleMainTest {
         assertTrue(out.contains("MISSION FAILED"));
         assertTrue(out.contains("Correct 0/11"));
         assertTrue(out.contains("Goodbye"));
+    }
+
+    /** A fake AI: answers with one identification question per request slot, or fails. */
+    private static AiClient fakeAi(boolean works) {
+        return new AiClient() {
+            @Override
+            public String getName() {
+                return "FakeAI";
+            }
+
+            @Override
+            public List<AiQuestion> generate(AiRequest request) throws AiException {
+                if (!works) {
+                    throw new AiException("FakeAI returned HTTP 429 (rate limit reached).");
+                }
+                List<AiQuestion> questions = new ArrayList<>();
+                for (int i = 0; i < request.getCount(); i++) {
+                    questions.add(new AiQuestion(AiQuestionKind.IDENTIFICATION,
+                            "AI clue: the plan an object is built from.", "Class", null, null, null));
+                }
+                return questions;
+            }
+        };
+    }
+
+    private String playWithAi(String input, AiClient ai) {
+        ConsoleRenderer renderer = new ConsoleRenderer(new PrintStream(buffer, true, StandardCharsets.UTF_8));
+        new ConsoleMain(new Scanner(input), renderer, new Random(42), () -> 0, ai).run();
+        return buffer.toString(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void aiOffIsShownWhenThereIsNoKey() {
+        assertTrue(play("5\n").contains("AI questions: off"));
+    }
+
+    @Test
+    void aiQuestionsAreUsedWhenTheAiAnswers() throws IOException {
+        String out = playWithAi(soloVsVoidBrute(ONE_TERM_LESSON) + "Class\n/quit\n\n5\n", fakeAi(true));
+        assertTrue(out.contains("AI questions: on (FakeAI)"));
+        assertTrue(out.contains("Asking FakeAI for questions..."));
+        assertTrue(out.contains("AI questions from FakeAI"));
+        assertTrue(out.contains("AI clue: the plan an object is built from."));
+        assertTrue(out.contains("Correct!"));
+    }
+
+    @Test
+    void gameStillPlaysWhenTheAiFails() throws IOException {
+        // Like Wi-Fi off: every AI request fails, so the battle uses local questions.
+        String out = playWithAi(soloVsVoidBrute(ONE_TERM_LESSON) + "Class\nClass\nClass\n\n5\n", fakeAi(false));
+        assertTrue(out.contains("Offline: using local questions"));
+        assertTrue(out.contains("(FakeAI returned HTTP 429 (rate limit reached).)"));
+        assertTrue(out.contains("MISSION COMPLETE"));
+        assertTrue(out.contains("Goodbye"));
+    }
+
+    @Test
+    void squadAlsoUsesTheAi() throws IOException {
+        String out = playWithAi(squadVsVoidBrute(ONE_TERM_LESSON) + "/quit\n\n5\n", fakeAi(true));
+        assertTrue(out.contains("AI questions from FakeAI"));
     }
 }

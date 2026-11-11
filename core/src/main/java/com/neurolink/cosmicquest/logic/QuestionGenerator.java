@@ -30,10 +30,14 @@ public class QuestionGenerator {
     private static final int MAX_KEYWORDS = 5;
     private static final int MIN_KEYWORD_LENGTH = 4;
 
-    private static final int IDENTIFICATION_DIFFICULTY = 2;
-    private static final int MULTIPLE_CHOICE_DIFFICULTY = 1;
-    private static final int ENUMERATION_DIFFICULTY = 2;
-    private static final int REASONING_DIFFICULTY = 3;
+    /** Difficulty of identification questions; AI questions use the same values. */
+    public static final int IDENTIFICATION_DIFFICULTY = 2;
+    /** Difficulty of multiple choice questions. */
+    public static final int MULTIPLE_CHOICE_DIFFICULTY = 1;
+    /** Difficulty of enumeration questions. */
+    public static final int ENUMERATION_DIFFICULTY = 2;
+    /** Difficulty of reasoning questions. */
+    public static final int REASONING_DIFFICULTY = 3;
 
     private static final String NOT_LETTER = "[^a-z]+";
     private static final Set<String> COMMON_WORDS = Set.of(

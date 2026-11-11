@@ -53,6 +53,27 @@ public class SquadBossBattle extends BattleMode {
      */
     public SquadBossBattle(Team team, Entity boss, QuestionGenerator generator, Random random) {
         super(boss, generator, random);
+        this.team = checkSetup(team, boss);
+    }
+
+    /**
+     * Prepares a Squad battle whose questions come from a provider, such as
+     * AI with a local fallback.
+     *
+     * @param team the players, in turn order.
+     * @param boss the level 3 alien to fight.
+     * @param provider supplies the questions.
+     * @param random shuffles the question pool.
+     * @throws IllegalArgumentException if an argument is null, the team has
+     *         fewer than 2 players, the boss is not level 3, or the lesson
+     *         cannot make questions of the boss's type.
+     */
+    public SquadBossBattle(Team team, Entity boss, QuestionProvider provider, Random random) {
+        super(boss, provider, random);
+        this.team = checkSetup(team, boss);
+    }
+
+    private static Team checkSetup(Team team, Entity boss) {
         if (team == null) {
             throw new IllegalArgumentException("The team must not be null.");
         }
@@ -64,7 +85,7 @@ public class SquadBossBattle extends BattleMode {
             throw new IllegalArgumentException("A Squad boss must be level " + BOSS_LEVEL
                     + ", got " + boss.getLevel() + ".");
         }
-        this.team = team;
+        return team;
     }
 
     /** Starts the battle with the first player still fighting. */

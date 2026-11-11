@@ -129,9 +129,10 @@ Levels outside 1–3 are rejected. Level 3 aliens act as bosses.
 - The debrief lists every missed question with its correct answer.
 ### 7.8 AI question generation — P1
  
-- `QuestionProvider` interface with `LocalProvider` (offline, uses `QuestionGenerator`) and `GeminiProvider` (Gemini Flash via `java.net.http.HttpClient`, JSON response).
-- The API key is read from `config.properties`, which is git-ignored; only `config.properties.example` is committed.
-- Any error, timeout or HTTP 429 falls back to `LocalProvider` with the message "Offline: using local questions".
+- `QuestionProvider` interface (in `logic`) with `LocalProvider` (offline, uses `QuestionGenerator`) and `AiQuestionProvider` (asks the `ai` module, checks every question, tops up with local questions). Decision D9.
+- The `ai` module tries **Gemini** (Flash-Lite, `generateContent`) first, then **Groq** (OpenAI-compatible chat completions), via `java.net.http.HttpClient` and JSON (Gson). GitHub Models was the planned second provider but was retired on July 30, 2026.
+- Keys and model names are read from `config.properties`, which is git-ignored; only `config.properties.example` is committed. A provider without a key is skipped.
+- Any error, timeout, HTTP 429 or bad JSON falls back to `LocalProvider` with the message "Offline: using local questions" and the reason (for example "check the key in config.properties").
 - In the GUI, generation runs on a background thread and never freezes the game.
 ### 7.9 Console version — P0
  
@@ -204,13 +205,18 @@ core/src/main/java/com/neurolink/cosmicquest/
   logic/    Term, LessonData, TxtParser, QuestionGenerator, QuestionPool, DamageCalculator,
             BattleState, TurnResult, BattleMode, SoloBossBattle, SquadBossBattle, MatchStats,
             PowerUp + 4 types, PowerUpInventory, hazards
-  ai/       QuestionProvider, LocalProvider, GeminiProvider
+            QuestionProvider, LocalProvider, AiQuestionProvider
   console/  ConsoleMain, ConsoleRenderer               (Weeks 1–2)
   screens/  LibGDX screens and BattleController        (Weeks 3–5)
   render/   AstronautActor, EnemyActor, backgrounds, effects
   audio/    AudioManager
+ai/src/main/java/com/neurolink/cosmicquest/ai/   (separate Gradle module, D9)
+            AiClient, AiChain, HttpAiClient, GeminiClient, OpenAiCompatibleClient,
+            AiConfig, AiRequest, AiQuestion, AiQuestionKind, AiException, HttpTransport
 lwjgl3/     Desktop launcher only
 ```
+
+Module rule: `core` depends on `ai`; `ai` never imports `core` or LibGDX. The `ai` module returns plain `AiQuestion` data, and `AiQuestionProvider` in `core` turns it into the game's `Question` classes.
  
 Rule: `console` and `screens` call `model` and `logic`; never the other way round. The same battle logic powers both versions.
  
@@ -298,6 +304,7 @@ This plan replaces the S04–S08 task order for solo work. Every task keeps its 
 | D6 | Randomness | Every class that uses randomness takes a `Random` in a constructor, so tests can use a fixed seed (`new Random(42)`). |
 | D7 | Build order | Solo battle playable end to end first; power-ups, Squad and AI after. |
 | D8 | Streak timing | On a correct answer the battle calls `increaseStreak()` first, then passes the new streak to `DamageCalculator`. The first correct answer is streak 1 and deals +10% (difficulty 1: 22 damage). |
+| D9 | AI module | The AI providers live in a separate Gradle module, `ai`, that knows nothing about the game and returns plain `AiQuestion` data. `core` depends on `ai`, never the reverse, so there is no cycle. `AiQuestionProvider` in `core` checks each question (for example, exactly 4 options, the answer not given away in the clue) and drops the bad ones. Tests use a fake `HttpTransport`; no test calls a real API. |
 
 ### 15.2 Tasks
 

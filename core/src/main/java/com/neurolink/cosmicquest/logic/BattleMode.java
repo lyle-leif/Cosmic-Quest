@@ -22,7 +22,7 @@ import java.util.TreeSet;
  *
  * <p>Every question in a battle matches the alien's question type: a Void
  * Brute asks only identification questions. When the pool runs out, it is
- * refilled from the generator, so a battle never runs dry.
+ * refilled from the {@link QuestionProvider}, so a battle never runs dry.
  *
  * <p>The rules of a turn live here, in {@link #answerFor(Player, String)} and
  * {@link #timeoutFor(Player)}, so every mode plays by the same rules:
@@ -56,7 +56,7 @@ public abstract class BattleMode {
     private static final double NO_MATCH = 0.0;
 
     protected final Entity entity;
-    protected final QuestionGenerator generator;
+    protected final QuestionProvider provider;
     protected final QuestionPool questionPool;
     protected final Random random;
     protected BattleState state = BattleState.QUESTION;
@@ -70,8 +70,7 @@ public abstract class BattleMode {
     private Set<Integer> hiddenOptions = Set.of();
 
     /**
-     * Prepares a battle against one alien. The battle starts with
-     * {@link #startBattle()}.
+     * Prepares a battle with local questions only.
      *
      * @param entity the alien to fight.
      * @param generator makes questions from the loaded lesson.
@@ -80,15 +79,30 @@ public abstract class BattleMode {
      *         cannot make questions of the alien's type.
      */
     protected BattleMode(Entity entity, QuestionGenerator generator, Random random) {
-        if (entity == null || generator == null || random == null) {
-            throw new IllegalArgumentException("Entity, generator and random must not be null.");
+        this(entity, generator == null ? null : new LocalProvider(generator), random);
+    }
+
+    /**
+     * Prepares a battle against one alien. The battle starts with
+     * {@link #startBattle()}. The first batch of questions is asked for here,
+     * so with AI on this can wait up to the AI timeout.
+     *
+     * @param entity the alien to fight.
+     * @param provider supplies the questions: local, or AI with a local fallback.
+     * @param random shuffles the question pool; tests pass a fixed seed.
+     * @throws IllegalArgumentException if an argument is null, or the lesson
+     *         cannot make questions of the alien's type.
+     */
+    protected BattleMode(Entity entity, QuestionProvider provider, Random random) {
+        if (entity == null || provider == null || random == null) {
+            throw new IllegalArgumentException("Entity, question provider and random must not be null.");
         }
-        if (!generator.supports(entity.getQuestionType())) {
+        if (!provider.supports(entity.getQuestionType())) {
             throw new IllegalArgumentException("This lesson cannot make " + entity.getQuestionType()
                     + " questions for " + entity.getName() + ".");
         }
         this.entity = entity;
-        this.generator = generator;
+        this.provider = provider;
         this.random = random;
         this.questionPool = new QuestionPool(makeQuestions(), random);
     }
@@ -196,6 +210,23 @@ public abstract class BattleMode {
     /** Returns every question missed so far, each once, for the debrief. */
     public List<Question> getMissedQuestions() {
         return questionPool.getMissedQuestions();
+    }
+
+    /**
+     * Returns where the latest questions came from, such as
+     * "AI questions from Gemini" or "Offline: using local questions".
+     */
+    public String getQuestionStatus() {
+        return provider.getStatus();
+    }
+
+    /**
+     * Returns why the AI could not supply the latest questions, such as
+     * "Gemini returned HTTP 429 (rate limit reached).", or null if there was
+     * no problem or AI is off.
+     */
+    public String getQuestionProblem() {
+        return provider instanceof AiQuestionProvider ai ? ai.getLastProblem() : null;
     }
 
     /** Returns the battle's running statistics for the debrief. */
@@ -461,11 +492,15 @@ public abstract class BattleMode {
         return questionPool.getNextQuestion();
     }
 
-    /** Makes a batch of questions of the alien's type. */
+    /**
+     * Asks the provider for a batch of questions of the alien's type.
+     *
+     * @throws IllegalStateException if the provider returns no questions.
+     */
     private List<Question> makeQuestions() {
-        List<Question> questions = new ArrayList<>(QUESTIONS_PER_REFILL);
-        for (int i = 0; i < QUESTIONS_PER_REFILL; i++) {
-            questions.add(generator.generate(entity.getQuestionType()));
+        List<Question> questions = new ArrayList<>(provider.provide(entity.getQuestionType(), QUESTIONS_PER_REFILL));
+        if (questions.isEmpty()) {
+            throw new IllegalStateException("The question provider returned no questions.");
         }
         return questions;
     }

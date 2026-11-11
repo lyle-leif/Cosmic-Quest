@@ -230,7 +230,7 @@ test {
  
 - Lessons in the GUI come from `Gdx.files.local("lessons/")`; copy the sample there on first run (S10).
 - `config.properties` and `lessons/` must load from next to the JAR (S19).
-- Check the current Gemini model name, endpoint and free-tier limits at ai.google.dev before S08; they change often.
+- Check the current Gemini model name, endpoint and free-tier limits at ai.google.dev before S08; they change often. (Checked in S08: default `gemini-3.5-flash-lite`; GitHub Models was retired on July 30, 2026, so the second provider is Groq. Both model names can be changed in `config.properties`.)
 - Never call the AI inside `render()`; use a background thread and `Gdx.app.postRunnable` (S17).
 ---
  
