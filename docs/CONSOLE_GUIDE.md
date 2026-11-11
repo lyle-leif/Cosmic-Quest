@@ -79,7 +79,7 @@ when it uses at least 60% of the key words.
     [Identification] Difficulty 2/3
     A feature that allows a class to acquire fields and methods from another class.
     (Type the term.)
-    Power-ups: none yet (one every 3 right answers in a row)
+    Power-ups: none (earn one with every 3 right answers in a row)
     > 
 
 1. Read the question and type your answer within **30 seconds**. A late answer

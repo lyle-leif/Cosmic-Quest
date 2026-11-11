@@ -279,14 +279,19 @@ Class diagram: `docs/uml/class-diagram.puml` (v2, matches the console code at th
 | One person finishes 51 tasks alone (from S04) | Console late, GUI cut | Build Solo battle end to end before power-ups, Squad and AI (section 15) |
 | Known console bugs (input, math, battle loop) | Crashes, wrong damage, endless loops | Fixes are built into each task in section 15.2; each has a test |
  
-## 14. Current status (Nov 9, 2026)
+## 14. Current status (Nov 11, 2026)
  
 | Session | Merged on `dev` |
 |---|---|
 | S01 | LibGDX project setup; lesson format + sample lesson; `QuestionType`, `Combatant`, `Entity` |
 | S02 | `Player`; 4 alien subclasses; UML v1 |
 | S03 | `TxtParser`, `LessonData`, `Term`, `InvalidLessonFormatException`; abstract `Question`; `IdentificationQuestion`, `MultipleChoiceQuestion` |
-| Next (S04) | `EnumerationQuestion` + `ReasoningQuestion`, then `QuestionGenerator`, then JUnit 5 tests (all Lyle; see section 15) |
+| S04 | `EnumerationQuestion`, `ReasoningQuestion`, `QuestionGenerator`; JUnit 5 tests (Gate 1) |
+| S05 | `QuestionPool`, `DamageCalculator`, `ConsoleRenderer` |
+| S06 | `BattleState`, `TurnResult`, abstract `BattleMode`; `SoloBossBattle`; power-ups and `PowerUpInventory` |
+| S07 | `MatchStats` and debrief; console main menu (`ConsoleMain`); `Team` and `SquadBossBattle` |
+| S08 | `ai` module with Gemini → Groq → local fallback (D9); UML v2 and `docs/CONSOLE_GUIDE.md`; console gate tests (whole games through `ConsoleMain`) |
+| Next | Release `dev` → `main` and tag `v0.1-console` (Gate 2), then S09: GUI foundation |
 
 ## 15. Console build plan (S04–S08)
 

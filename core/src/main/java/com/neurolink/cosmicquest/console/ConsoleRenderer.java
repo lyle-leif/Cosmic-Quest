@@ -263,7 +263,7 @@ public class ConsoleRenderer {
     public void showPowerUps(PowerUpInventory inventory) {
         List<PowerUp> powerUps = inventory.getPowerUps();
         if (powerUps.isEmpty()) {
-            out.println("Power-ups: none yet (one every 3 right answers in a row)");
+            out.println("Power-ups: none (earn one with every 3 right answers in a row)");
             return;
         }
         StringBuilder line = new StringBuilder("Power-ups:");
@@ -293,6 +293,7 @@ public class ConsoleRenderer {
         out.println("   0 hull is skipped; the squad loses when every pilot is down.");
         out.println("Battle commands:");
         out.println("  /1, /2, /3  use a power-up before you answer");
+        out.println("  /help       show these rules again");
         out.println("  /quit       give up the battle");
     }
 
