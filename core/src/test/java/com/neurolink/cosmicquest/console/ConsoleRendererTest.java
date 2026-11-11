@@ -216,7 +216,7 @@ class ConsoleRendererTest {
     void powerUpsShowSlotsAndLocks() {
         PowerUpInventory inventory = new PowerUpInventory();
         renderer.showPowerUps(inventory);
-        assertTrue(printed().contains("none yet"));
+        assertTrue(printed().contains("Power-ups: none (earn one with every 3 right answers in a row)"));
         inventory.add(new Shield());
         inventory.add(new Repair());
         inventory.lockRandomSlot(new Random(1), 2);
@@ -233,6 +233,7 @@ class ConsoleRendererTest {
         String out = printed();
         assertTrue(out.contains("30 seconds"));
         assertTrue(out.contains("/quit"));
+        assertTrue(out.contains("/help"), "Every battle command is listed");
         assertTrue(out.chars().allMatch(c -> c < 128));
     }
 
