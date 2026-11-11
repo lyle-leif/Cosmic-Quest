@@ -229,7 +229,7 @@ Rule: `console` and `screens` call `model` and `logic`; never the other way roun
 | Polymorphism | `Combatant` holds a player or an alien; each question overrides `checkAnswer`; each mode overrides `submitAnswer` |
 | Abstraction | `Combatant`, `QuestionProvider` and `UnlockCondition` interfaces; abstract `Entity`, `Question`, `BattleMode`, `PowerUp` |
  
-Class diagram: `docs/uml/class-diagram.puml` (v1, updated to v2 in S08 and v3 in S18).
+Class diagram: `docs/uml/class-diagram.puml` (v2, matches the console code at the end of S08; v3 comes in S18). Pictures: `docs/uml/class-diagram-v1.png` (S02) and `docs/uml/class-diagram-v2.png` (S08). How to play the console version: `docs/CONSOLE_GUIDE.md`.
  
 ## 10. Milestones
  

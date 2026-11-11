@@ -66,7 +66,7 @@ These differ from, or add to, the original sheet text. New code must fit them.
 | Exception type | `InvalidLessonFormatException` is a **checked** exception with `getLineNumber()`; callers must catch it and show the message |
 | Read-only data | `LessonData` returns unmodifiable lists and map, in file order (`LinkedHashMap`) |
 | Lesson sample | `Instance` was replaced with `Static` (Object and Instance were ambiguous) |
-| UML | `docs/uml/class-diagram.puml` uses packages, `<<Sxx>>` tags for planned classes, `left to right direction` (keeps the PNG under PlantUML's 4,096 px limit) |
+| UML | `docs/uml/class-diagram.puml` uses packages, `<<Sxx>>` tags for planned classes, `left to right direction` (keeps the PNG under PlantUML's 4,096 px limit). v2 drops the `<<Sxx>>` tags because every class is built. Render without Graphviz: `java -jar plantuml.jar -Playout=smetana -tpng docs/uml/class-diagram.puml` (the jar ships with the VS Code PlantUML extension) |
 | Merging | Repo allows squash only; PR title = the sheet's commit message |
  
 ---
@@ -300,7 +300,7 @@ Cut order if time runs short: **particles → Suit Locker and outfits → enviro
  
 | Item | Fix |
 |---|---|
-| UML picture is named `docs/uml/class-diagram-v1_1.png` | `git mv` it to `class-diagram-v1.png` in the S08 UML task |
+| UML picture is named `docs/uml/class-diagram-v1_1.png` | Done in S08: renamed to `class-diagram-v1.png`; v2 is `class-diagram-v2.png` |
 | UML commit on `dev` is titled `Docs/uml v1 (#11)` | Can't change history; note `556a82e` in the sheet |
 | S03 rows in the sheet may still say Not started | Done: `cee9904` (TxtParser), `b56a343` (Question), `2f2663f` (Identification + Multiple Choice) |
 | Several files end without a newline | VS Code setting **Files: Insert Final Newline** = on |
