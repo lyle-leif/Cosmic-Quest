@@ -393,10 +393,205 @@ public class MainMenuScreen extends ScreenAdapter {
      * - Slide 2: Pilot 2 Name + Portrait & Star-Gun Sprite
      * - Slide 3 (if 3 pilots): Pilot 3 Name + Portrait & Astral Spear Sprite
      * - Final Slide: "CHOOSE AN ALIEN" (Level 3 Boss)
-    private void showSquadBattleDialog() {}
+     */
+    private void showSquadBattleDialog() {
+        Skin skin = assets.getSkin();
+        final Dialog dialog = new Dialog("", skin);
+        dialog.setBackground(skin.getDrawable("panel-dialogue"));
+        dialog.pad(26f, 34f, 24f, 34f);
+
+        final Table content = dialog.getContentTable();
+        content.pad(6f);
+
+        // slideIndex: 0 = How Many Pilots, 1..pilotCount = Pilot i Registration, pilotCount + 1 = Choose Alien
+        final int[] slideIndex = {0};
+        final int[] pilotCount = {2};
+        final String[] pilotNames = {"Pilot 1", "Pilot 2", "Pilot 3"};
+
+        final Label badgeLabel = new Label("", skin, "cyan");
+        final Label titleLabel = new Label("", skin, "title");
+        final Label subLabel = new Label("", skin, "muted");
+        final Label errorLabel = new Label("", skin, "crimson");
+
+        content.add(badgeLabel).left().padBottom(2f).row();
+        content.add(titleLabel).left().padBottom(4f).row();
+        content.add(subLabel).left().padBottom(6f).row();
+        content.add(errorLabel).left().padBottom(6f).row();
+
+        final Table body = new Table();
+        content.add(body).width(668f).minHeight(205f).center().row();
+
+        final TextButton backBtn = new TextButton("<< BACK", skin, "utility");
+        final TextButton cancelBtn = new TextButton("CANCEL", skin, "utility");
+
+        final Runnable[] renderSlide = new Runnable[1];
+        renderSlide[0] = () -> {
+            body.clearChildren();
+            errorLabel.setText("");
+            int totalSlides = pilotCount[0] + 2;
+
+            if (slideIndex[0] == 0) {
+                badgeLabel.setText("SQUAD BATTLE   //   SQUAD SIZE");
+                titleLabel.setText("HOW MANY PILOTS?");
+                subLabel.setText("2 or 3 pilots take turns against a Level 3 boss, switching character & weapon on each turn.");
+                backBtn.setVisible(false);
+
+                Table sizeRow = new Table();
+
+                TextButton twoBtn = new TextButton("2 PILOTS\nSword  +  Star-Gun", skin, "boon");
+                twoBtn.pad(14f, 18f, 14f, 18f);
+                twoBtn.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        CosmicAudio.playClick();
+                        pilotCount[0] = 2;
+                        slideIndex[0] = 1;
+                        renderSlide[0].run();
+                    }
+                });
+
+                TextButton threeBtn = new TextButton("3 PILOTS\nSword  +  Star-Gun  +  Spear", skin, "boon");
+                threeBtn.pad(14f, 18f, 14f, 18f);
+                threeBtn.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        CosmicAudio.playClick();
+                        pilotCount[0] = 3;
+                        slideIndex[0] = 1;
+                        renderSlide[0].run();
+                    }
+                });
+
+                sizeRow.add(twoBtn).width(314f).height(98f).pad(10f);
+                sizeRow.add(threeBtn).width(314f).height(98f).pad(10f);
+                body.add(sizeRow).center().row();
+
+            } else if (slideIndex[0] >= 1 && slideIndex[0] <= pilotCount[0]) {
+                final int pIdx = slideIndex[0] - 1; // 0, 1, or 2
+                final int pilotNum = slideIndex[0];
+                String defName = "Pilot " + pilotNum;
+
+                badgeLabel.setText("SQUAD BATTLE   //   PILOT " + pilotNum + " OF " + pilotCount[0]);
+                titleLabel.setText("REGISTER PILOT " + pilotNum);
+                subLabel.setText("Enter a unique callsign for Pilot " + pilotNum + " (or leave blank for " + defName + ").");
+                backBtn.setVisible(true);
+
+                String nextLabel = (pilotNum < pilotCount[0])
+                        ? "NEXT: PILOT " + (pilotNum + 1) + "  >>"
+                        : "NEXT: CHOOSE AN ALIEN  >>";
+
+                Table pilotCard = buildSinglePilotEntryCard(
+                        pIdx,
+                        defName,
+                        pilotNames[pIdx],
+                        "Pilot " + pilotNum + " name (blank for " + defName + "):",
+                        nextLabel,
+                        chosenName -> {
+                            // Validate with Team.addPlayer up through pilotNum so duplicates are caught immediately!
+                            Team checkTeam = new Team("Squad");
+                            for (int prev = 0; prev < pIdx; prev++) {
+                                checkTeam.addPlayer(new Player(pilotNames[prev]));
+                            }
+                            try {
+                                checkTeam.addPlayer(new Player(chosenName));
+                                pilotNames[pIdx] = chosenName;
+                                CosmicAudio.playClick();
+                                slideIndex[0]++;
+                                renderSlide[0].run();
+                            } catch (IllegalArgumentException ex) {
+                                CosmicAudio.playBossHit();
+                                errorLabel.setText("! " + ex.getMessage() + " Pick another name.");
+                            }
+                        });
+                body.add(pilotCard).width(656f).center().row();
+
+            } else {
+                StringBuilder rosterSummary = new StringBuilder();
+                for (int i = 0; i < pilotCount[0]; i++) {
+                    if (i > 0) {
+                        rosterSummary.append("  |  ");
+                    }
+                    rosterSummary.append(pilotNames[i]);
+                }
+                badgeLabel.setText("SQUAD BATTLE   //   FINAL STEP   (Squad: " + rosterSummary + ")");
+                titleLabel.setText("CHOOSE AN ALIEN  (LEVEL 3 BOSS)");
+                subLabel.setText("Select which Level 3 Boss your squad will fight:");
+                backBtn.setVisible(true);
+
+                QuestionGenerator gen = game.createGenerator();
+                List<Integer> availableIndices = new ArrayList<>();
+                for (int i = 0; i < ALIENS.size(); i++) {
+                    Entity sample = ALIENS.get(i).apply(1);
+                    if (gen.supports(sample.getQuestionType())) {
+                        availableIndices.add(i);
+                    }
+                }
+
+                Table grid = new Table();
+                for (int listPos = 0; listPos < availableIndices.size(); listPos++) {
+                    final int alienIdx = availableIndices.get(listPos);
+                    Entity sample = ALIENS.get(alienIdx).apply(SquadBossBattle.BOSS_LEVEL);
+                    String labelText = sample.getName().toUpperCase() + " (Lv.3 - " + sample.getMaxHp() + " Hull)\n" + sample.getSpecialMove();
+                    TextButton card = new TextButton(labelText, skin, "boon");
+                    card.getLabel().setWrap(true);
+                    card.pad(10f, 14f, 10f, 14f);
+                    card.addListener(new ClickListener() {
+                        @Override
+                        public void clicked(InputEvent event, float x, float y) {
+                            CosmicAudio.playBoonActivate();
+                            dialog.hide();
+                            launchSquadBattle(pilotCount[0], pilotNames, alienIdx);
+                        }
+                    });
+                    grid.add(card).width(318f).height(86f).pad(6f);
+                    if (listPos % 2 == 1) {
+                        grid.row();
+                    }
+                }
+                body.add(grid).center().row();
+            }
+
+            dialog.pack();
+            dialog.setPosition(
+                    Math.round((CosmicTheme.VIRTUAL_WIDTH - dialog.getWidth()) / 2f),
+                    Math.round((CosmicTheme.VIRTUAL_HEIGHT - dialog.getHeight()) / 2f));
+        };
+
+        backBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                if (slideIndex[0] > 0) {
+                    slideIndex[0]--;
+                    renderSlide[0].run();
+                }
+            }
+        });
+
+        cancelBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                dialog.hide();
+            }
+        });
+
+        Table footer = new Table();
+        footer.add(backBtn).width(180f).height(42f).left().padRight(260f);
+        footer.add(cancelBtn).width(180f).height(42f).right();
+        dialog.getButtonTable().add(footer).padTop(10f);
+
+        dialog.show(stage);
+        renderSlide[0].run();
+    }
+
+    /**
+     * Faithful to ConsoleMain.promptLesson():
+     * "Type the path to a lesson .txt file (blank to cancel):"
     private void showLoadLessonDialog() {}
     private void showHowToPlayDialog() {}
     private void launchSoloBattle(String pilotName, int alienIdx, int level) {}
+    private void launchSquadBattle(int pilotCount, String[] pilotNames, int alienIdx) {}
 
     public void render(float delta) {
         animTime += delta;
