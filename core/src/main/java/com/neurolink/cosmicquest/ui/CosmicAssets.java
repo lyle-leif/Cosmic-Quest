@@ -324,7 +324,165 @@ public class CosmicAssets implements Disposable {
     }
 
     private void buildSkin() {
-        skin.add("default", fontBody, BitmapFont.class);
+        skin.add("font-small", fontSmall);
+        skin.add("font-body", fontBody);
+        skin.add("font-medium", fontMedium);
+        skin.add("font-large", fontLarge);
+        skin.add("font-title", fontTitle);
+        skin.add("font-huge", fontHuge);
+
+        // Procedural Hades-style ornate panels
+        skin.add("panel-dialogue", makeOrnateBoxDrawable(CosmicTheme.BG_DIALOGUE, CosmicTheme.GOLD_TRIM, CosmicTheme.GOLD_BRIGHT, 3), Drawable.class);
+        skin.add("panel-dark", makeOrnateBoxDrawable(CosmicTheme.BG_PANEL, CosmicTheme.GOLD_DEEP, CosmicTheme.GOLD_TRIM, 2), Drawable.class);
+        skin.add("panel-hud", makeOrnateBoxDrawable(new Color(0.08f, 0.06f, 0.14f, 0.92f), CosmicTheme.GOLD_TRIM, CosmicTheme.ASTRAL_CYAN, 2), Drawable.class);
+        skin.add("panel-crimson", makeOrnateBoxDrawable(new Color(0.16f, 0.04f, 0.08f, 0.94f), CosmicTheme.ZAGREUS_CRIMSON, CosmicTheme.GOLD_BRIGHT, 2), Drawable.class);
+
+        // Label Styles
+        skin.add("default", new LabelStyle(fontBody, CosmicTheme.TEXT_PARCMENT));
+        skin.add("small", new LabelStyle(fontSmall, CosmicTheme.TEXT_PARCMENT));
+        skin.add("muted", new LabelStyle(fontSmall, CosmicTheme.TEXT_MUTED));
+        skin.add("medium", new LabelStyle(fontMedium, CosmicTheme.TEXT_PARCMENT));
+        skin.add("gold", new LabelStyle(fontMedium, CosmicTheme.GOLD_BRIGHT));
+        skin.add("cyan", new LabelStyle(fontMedium, CosmicTheme.ASTRAL_CYAN));
+        skin.add("crimson", new LabelStyle(fontMedium, CosmicTheme.BLOOD_RED));
+        skin.add("title", new LabelStyle(fontTitle, CosmicTheme.GOLD_BRIGHT));
+        skin.add("huge", new LabelStyle(fontHuge, CosmicTheme.GOLD_BRIGHT));
+
+        // Primary Gold/Crimson Action Button (Hades Menu Style)
+        TextButtonStyle goldBtn = new TextButtonStyle();
+        goldBtn.font = fontMedium;
+        goldBtn.fontColor = CosmicTheme.TEXT_WARM;
+        goldBtn.overFontColor = Color.WHITE;
+        goldBtn.downFontColor = CosmicTheme.GOLD_BRIGHT;
+        goldBtn.up = makeOrnateBoxDrawable(new Color(0.17f, 0.07f, 0.12f, 0.96f), CosmicTheme.GOLD_TRIM, CosmicTheme.ZAGREUS_CRIMSON, 2);
+        goldBtn.over = makeOrnateBoxDrawable(new Color(0.28f, 0.09f, 0.16f, 0.99f), CosmicTheme.GOLD_BRIGHT, CosmicTheme.ASTRAL_CYAN, 2);
+        goldBtn.down = makeOrnateBoxDrawable(new Color(0.36f, 0.12f, 0.20f, 1.0f), CosmicTheme.GOLD_BRIGHT, CosmicTheme.GOLD_BRIGHT, 3);
+        goldBtn.disabled = makeOrnateBoxDrawable(new Color(0.10f, 0.09f, 0.13f, 0.65f), CosmicTheme.TEXT_DIM, CosmicTheme.TEXT_DIM, 1);
+        goldBtn.disabledFontColor = CosmicTheme.TEXT_DIM;
+        skin.add("default", goldBtn);
+
+        // Hades Boon Answer Card Button (Clickable Q&A Option inside Dialogue)
+        TextButtonStyle boonBtn = new TextButtonStyle();
+        boonBtn.font = fontBody;
+        boonBtn.fontColor = CosmicTheme.TEXT_PARCMENT;
+        boonBtn.overFontColor = CosmicTheme.GOLD_BRIGHT;
+        boonBtn.downFontColor = CosmicTheme.ASTRAL_CYAN;
+        boonBtn.up = makeOrnateBoxDrawable(CosmicTheme.BG_CARD, CosmicTheme.GOLD_DEEP, CosmicTheme.GOLD_TRIM, 2);
+        boonBtn.over = makeOrnateBoxDrawable(CosmicTheme.BG_CARD_HOVER, CosmicTheme.GOLD_BRIGHT, CosmicTheme.ASTRAL_CYAN, 2);
+        boonBtn.down = makeOrnateBoxDrawable(CosmicTheme.BG_CARD_SELECTED, CosmicTheme.ASTRAL_CYAN, CosmicTheme.GOLD_BRIGHT, 2);
+        boonBtn.checked = makeOrnateBoxDrawable(CosmicTheme.BG_CARD_SELECTED, CosmicTheme.GOLD_BRIGHT, CosmicTheme.ASTRAL_CYAN, 2);
+        boonBtn.checkedFontColor = CosmicTheme.GOLD_BRIGHT;
+        boonBtn.disabled = makeOrnateBoxDrawable(new Color(0.07f, 0.06f, 0.10f, 0.45f), CosmicTheme.TEXT_DIM, CosmicTheme.TEXT_DIM, 1);
+        boonBtn.disabledFontColor = CosmicTheme.TEXT_DIM;
+        skin.add("boon", boonBtn);
+
+        // Hades II Minimalist Title Menu Item Style (like PLAY / OPTIONS on Hades II title screen)
+        TextButtonStyle hadesMenuBtn = new TextButtonStyle();
+        hadesMenuBtn.font = fontLarge;
+        hadesMenuBtn.fontColor = CosmicTheme.TEXT_PARCMENT;
+        hadesMenuBtn.overFontColor = Color.valueOf("34F59B");
+        hadesMenuBtn.downFontColor = CosmicTheme.ASTRAL_CYAN;
+        hadesMenuBtn.up = makeMenuGlowBarDrawable(new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0f));
+        hadesMenuBtn.over = makeMenuGlowBarDrawable(new Color(0.05f, 0.38f, 0.24f, 0.55f), Color.valueOf("34F59B"));
+        hadesMenuBtn.down = makeMenuGlowBarDrawable(new Color(0.08f, 0.52f, 0.34f, 0.75f), CosmicTheme.ASTRAL_CYAN);
+        skin.add("hades-menu", hadesMenuBtn);
+
+        // Compact Power-Up / Utility Button
+        TextButtonStyle utilBtn = new TextButtonStyle();
+        utilBtn.font = fontSmall;
+        utilBtn.fontColor = CosmicTheme.ASTRAL_CYAN;
+        utilBtn.overFontColor = CosmicTheme.GOLD_BRIGHT;
+        utilBtn.up = makeOrnateBoxDrawable(new Color(0.09f, 0.12f, 0.22f, 0.94f), CosmicTheme.ASTRAL_CYAN, CosmicTheme.GOLD_TRIM, 2);
+        utilBtn.over = makeOrnateBoxDrawable(new Color(0.14f, 0.20f, 0.34f, 0.98f), CosmicTheme.GOLD_BRIGHT, CosmicTheme.ASTRAL_CYAN, 2);
+        utilBtn.down = makeOrnateBoxDrawable(new Color(0.18f, 0.28f, 0.44f, 1.0f), CosmicTheme.GOLD_BRIGHT, Color.WHITE, 2);
+        utilBtn.disabled = makeOrnateBoxDrawable(new Color(0.08f, 0.08f, 0.12f, 0.5f), CosmicTheme.TEXT_DIM, CosmicTheme.TEXT_DIM, 1);
+        utilBtn.disabledFontColor = CosmicTheme.TEXT_DIM;
+        skin.add("utility", utilBtn);
+
+        // TextField Style
+        TextFieldStyle tfStyle = new TextFieldStyle();
+        tfStyle.font = fontBody;
+        tfStyle.fontColor = CosmicTheme.TEXT_PARCMENT;
+        tfStyle.messageFont = fontBody;
+        tfStyle.messageFontColor = CosmicTheme.TEXT_DIM;
+        tfStyle.background = makeOrnateBoxDrawable(new Color(0.05f, 0.04f, 0.09f, 0.96f), CosmicTheme.GOLD_TRIM, CosmicTheme.ASTRAL_CYAN, 2);
+        tfStyle.focusedBackground = makeOrnateBoxDrawable(new Color(0.08f, 0.06f, 0.15f, 0.99f), CosmicTheme.ASTRAL_CYAN, CosmicTheme.GOLD_BRIGHT, 2);
+        tfStyle.cursor = new TextureRegionDrawable(new TextureRegion(makeSolidTexture(CosmicTheme.GOLD_BRIGHT)));
+        tfStyle.selection = new TextureRegionDrawable(new TextureRegion(makeSolidTexture(new Color(0.2f, 0.5f, 0.8f, 0.45f))));
+        skin.add("default", tfStyle);
+
+        // ScrollPane Style
+        ScrollPaneStyle spStyle = new ScrollPaneStyle();
+        spStyle.background = makeOrnateBoxDrawable(new Color(0.05f, 0.04f, 0.09f, 0.85f), CosmicTheme.GOLD_DEEP, CosmicTheme.GOLD_TRIM, 1);
+        spStyle.vScroll = new TextureRegionDrawable(new TextureRegion(makeSolidTexture(new Color(0.1f, 0.1f, 0.16f, 0.8f))));
+        spStyle.vScrollKnob = new TextureRegionDrawable(new TextureRegion(makeSolidTexture(CosmicTheme.GOLD_TRIM)));
+        skin.add("default", spStyle);
+
+        // Window / Dialog Style
+        WindowStyle winStyle = new WindowStyle();
+        winStyle.titleFont = fontMedium;
+        winStyle.titleFontColor = CosmicTheme.GOLD_BRIGHT;
+        winStyle.background = makeOrnateBoxDrawable(CosmicTheme.BG_DIALOGUE, CosmicTheme.GOLD_TRIM, CosmicTheme.GOLD_BRIGHT, 3);
+        winStyle.stageBackground = new TextureRegionDrawable(new TextureRegion(makeSolidTexture(new Color(0f, 0f, 0f, 0.65f))));
+        skin.add("default", winStyle);
+    }
+
+    public Drawable makeMenuGlowBarDrawable(Color centerFill, Color accentDot) {
+        int w = 64;
+        int h = 24;
+        Pixmap pm = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+        for (int x = 0; x < w; x++) {
+            float dist = Math.abs(x - w * 0.5f) / (w * 0.5f);
+            float alpha = Math.max(0f, (1f - dist * dist)) * centerFill.a;
+            pm.setColor(centerFill.r, centerFill.g, centerFill.b, alpha);
+            pm.drawLine(x, 2, x, h - 3);
+        }
+        Texture tex = new Texture(pm);
+        tex.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        pm.dispose();
+        generatedTextures.add(tex);
+        return new TextureRegionDrawable(new TextureRegion(tex));
+    }
+
+    public Drawable makeOrnateBoxDrawable(Color fill, Color outerBorder, Color cornerGem, int thickness) {
+        int size = 24;
+        Pixmap pm = new Pixmap(size, size, Pixmap.Format.RGBA8888);
+        pm.setColor(fill);
+        pm.fill();
+
+        // Outer metallic gold border
+        pm.setColor(outerBorder);
+        for (int t = 0; t < thickness; t++) {
+            pm.drawRectangle(t, t, size - 1 - t * 2, size - 1 - t * 2);
+        }
+
+        // Inner subtle shadow trim
+        pm.setColor(new Color(outerBorder.r * 0.55f, outerBorder.g * 0.55f, outerBorder.b * 0.55f, 0.65f));
+        pm.drawRectangle(thickness + 1, thickness + 1, size - 1 - (thickness + 1) * 2, size - 1 - (thickness + 1) * 2);
+
+        // Hades-style corner diamond rivets
+        pm.setColor(cornerGem);
+        int c = thickness + 2;
+        pm.fillRectangle(1, 1, c, c);
+        pm.fillRectangle(size - 1 - c, 1, c, c);
+        pm.fillRectangle(1, size - 1 - c, c, c);
+        pm.fillRectangle(size - 1 - c, size - 1 - c, c, c);
+
+        Texture tex = new Texture(pm);
+        pm.dispose();
+        generatedTextures.add(tex);
+        NinePatch patch = new NinePatch(tex, 6, 6, 6, 6);
+        return new NinePatchDrawable(patch);
+    }
+
+    public Texture makeSolidTexture(Color color) {
+        Pixmap pm = new Pixmap(4, 4, Pixmap.Format.RGBA8888);
+        pm.setColor(color);
+        pm.fill();
+        Texture tex = new Texture(pm);
+        pm.dispose();
+        generatedTextures.add(tex);
+        return tex;
     }
 
     public Skin getSkin() {
