@@ -235,6 +235,31 @@ public class CodexScreen extends ScreenAdapter {
         SpriteBatch batch = game.getBatch();
         batch.setProjectionMatrix(stage.getCamera().combined);
 
+        Texture bg = assets.loadTexture("backgrounds/env_deep_field.png", false);
+        batch.begin();
+        batch.draw(bg, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+        batch.end();
+
+        stage.act(delta);
+        stage.draw();
+
+        // Draw Detailed Hades Portrait + 24-Bit Pixel Sprite inside Left Card
+        float bob = MathUtils.sin(animTime * 3.2f) * 5f;
+        Texture portrait = assets.loadTexture(PORTRAIT_PATHS[selectedEntry], false);
+        Texture pixel = assets.loadTexture(PIXEL_PATHS[selectedEntry], true);
+
+        batch.begin();
+        batch.draw(portrait, 42f, 155f + bob * 0.4f, 245f, 245f);
+        batch.draw(pixel, 305f, 175f + bob, 204f, 185f);
+
+        assets.fontSmall.setColor(CosmicTheme.GOLD_BRIGHT);
+        assets.fontSmall.draw(batch, "DETAILED HADES PORTRAIT\n(Used in Q&A Dialogue)", 68f, 125f);
+        assets.fontSmall.setColor(CosmicTheme.ASTRAL_CYAN);
+        assets.fontSmall.draw(batch, "24-BIT PIXEL SPRITE\n(Used in 2D Attack Cutscene)", 330f, 125f);
+        assets.fontSmall.setColor(Color.WHITE);
+        batch.end();
+    }
+
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
