@@ -185,8 +185,20 @@ public class PrologueScreen extends ScreenAdapter {
 
         batch.begin();
         batch.draw(bg, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
-        batch.draw(bg, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+
+        // Draw 8-bit pixel sprites corresponding to each Prologue beat
+        if (sceneIndex == 1 || sceneIndex == 2 || sceneIndex == 4 || sceneIndex == 5) {
+            batch.draw(assets.getCadetPixelSprite(false), 180f, 295f + bob, 212f, 192f);
+        }
+        if (sceneIndex == 3 || sceneIndex == 4) {
+            batch.draw(assets.loadTexture("sprites/enemy_void_brute.png", true), 520f, 305f - bob * 0.6f, 165f, 165f);
+            batch.draw(assets.loadTexture("sprites/enemy_star_weaver.png", true), 700f, 315f + bob * 0.6f, 165f, 165f);
+            batch.draw(assets.loadTexture("sprites/enemy_nebula_lich.png", true), 880f, 305f - bob * 0.6f, 165f, 165f);
+            batch.draw(assets.loadTexture("sprites/enemy_lunar_beast.png", true), 1060f, 315f + bob * 0.6f, 165f, 165f);
+        }
         batch.end();
+
+        stage.act(delta);
         stage.draw();
     }
 
