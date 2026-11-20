@@ -168,6 +168,74 @@ public class MainMenuScreen extends ScreenAdapter {
         root.add(leftMenuCol).left().expand();
     }
 
+    /**
+     * Builds a visual Pilot Registration Card for a single pilot (pilotIndex = 0, 1, or 2),
+     * showing ONLY their high-detail Hades Bust Portrait anchored flush to the bottom border
+     * alongside their clean, non-overlapping Name Input Form!
+     */
+    private Table buildSinglePilotEntryCard(
+            int pilotIndex,
+            String defaultName,
+            String currentValue,
+            String promptText,
+            String buttonLabel,
+            java.util.function.Consumer<String> onConfirm) {
+
+        Skin skin = assets.getSkin();
+        Table card = new Table();
+        card.setBackground(skin.getDrawable("panel-dark"));
+        // Bottom padding = 2f so the portrait sits directly on top of the 2px gold bottom border!
+        card.pad(14f, 16f, 2f, 26f);
+
+        // Left: High-Detail Hades Art Portrait anchored flush to the bottom border of the card
+        Image portraitImg = new Image(assets.getCadetPortrait(pilotIndex));
+        portraitImg.setScaling(Scaling.fit);
+        portraitImg.setAlign(Align.bottom);
+
+        // Right Input Form: Archetype, Weapon, TextField, and Confirm Button
+        Table formCol = new Table();
+        formCol.padBottom(14f);
+
+        Label roleLabel = new Label(PILOT_ARCHETYPES[pilotIndex % 3], skin, "gold");
+        Label wepLabel = new Label("Weapon: " + PILOT_WEAPONS[pilotIndex % 3], skin, "small");
+        wepLabel.setColor(CosmicTheme.ASTRAL_CYAN);
+        wepLabel.setWrap(true);
+        Label promptLbl = new Label(promptText, skin, "small");
+
+        final TextField nameField = new TextField(currentValue.equals(defaultName) ? "" : currentValue, skin);
+        nameField.setMessageText(defaultName);
+
+        TextButton confirmBtn = new TextButton(buttonLabel, skin, "boon");
+        confirmBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                String typed = nameField.getText().strip();
+                String finalName = typed.isEmpty() ? defaultName : typed;
+                onConfirm.accept(finalName);
+            }
+        });
+
+        formCol.add(roleLabel).width(380f).left().padBottom(4f).row();
+        formCol.add(wepLabel).width(380f).left().padBottom(14f).row();
+        formCol.add(promptLbl).width(380f).left().padBottom(6f).row();
+        formCol.add(nameField).width(380f).height(42f).left().padBottom(14f).row();
+        formCol.add(confirmBtn).width(380f).height(48f).left().row();
+
+        card.add(portraitImg).size(210f, 210f).bottom().padRight(24f);
+        card.add(formCol).width(385f).center().expandX();
+
+        stage.setKeyboardFocus(nameField);
+        return card;
+    }
+
+    /**
+     * Faithful to ConsoleMain.playSolo():
+     * Slide 1: Pilot Registration (with Pilot 1 Portrait + 2D Pixel Sprite & Sword)
+     * Slide 2: Choose an Alien
+     * Slide 3: Choose a Level (Level 1, Level 2, Level 3 Boss)
+     */
+    private void showSoloBattleDialog() {
+        Skin skin = assets.getSkin();
     private void showSoloBattleDialog() {}
     private void showSquadBattleDialog() {}
     private void showLoadLessonDialog() {}
