@@ -588,11 +588,199 @@ public class MainMenuScreen extends ScreenAdapter {
     /**
      * Faithful to ConsoleMain.promptLesson():
      * "Type the path to a lesson .txt file (blank to cancel):"
-    private void showLoadLessonDialog() {}
-    private void showHowToPlayDialog() {}
-    private void launchSoloBattle(String pilotName, int alienIdx, int level) {}
-    private void launchSquadBattle(int pilotCount, String[] pilotNames, int alienIdx) {}
+     */
+    private void showLoadLessonDialog() {
+        Skin skin = assets.getSkin();
+        final Dialog dialog = new Dialog("", skin);
+        dialog.setBackground(skin.getDrawable("panel-dialogue"));
+        dialog.pad(26f, 34f, 24f, 34f);
 
+        Table content = dialog.getContentTable();
+        content.pad(8f);
+
+        content.add(new Label("LOAD LESSON", skin, "title")).left().padBottom(6f).row();
+        content.add(new Label("Current lesson: " + game.getLessonName()
+                + "  (" + game.getLessonData().getTerms().size() + " terms, "
+                + game.getLessonData().getEnumerations().size() + " lists)", skin, "cyan")).left().padBottom(12f).row();
+        content.add(new Label("Type the path to a lesson .txt file (blank to cancel):", skin, "default")).left().padBottom(8f).row();
+
+        final TextField pathField = new TextField("", skin);
+        pathField.setMessageText("assets/lessons/OOP_Fundamentals.txt");
+        content.add(pathField).width(560f).height(42f).left().padBottom(10f).row();
+
+        final Label feedbackLabel = new Label("", skin, "small");
+        feedbackLabel.setWrap(true);
+        content.add(feedbackLabel).width(560f).left().padBottom(10f).row();
+
+        Table btnRow = new Table();
+        TextButton loadBtn = new TextButton("LOAD LESSON", skin, "boon");
+        loadBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                String typed = pathField.getText().strip().replace("\"", "");
+                if (typed.isEmpty()) {
+                    CosmicAudio.playClick();
+                    dialog.hide();
+                    return;
+                }
+                String err = game.loadLessonWithError(typed);
+                if (err == null) {
+                    CosmicAudio.playBoonActivate();
+                    feedbackLabel.setColor(CosmicTheme.EMERALD_HEAL);
+                    feedbackLabel.setText("Loaded lesson: " + game.getLessonName());
+                } else {
+                    CosmicAudio.playBossHit();
+                    feedbackLabel.setColor(CosmicTheme.BLOOD_RED);
+                    feedbackLabel.setText("! " + err);
+                }
+            }
+        });
+
+        TextButton closeBtn = new TextButton("DONE / CANCEL", skin, "utility");
+        closeBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                dialog.hide();
+            }
+        });
+
+        btnRow.add(loadBtn).width(240f).height(46f).padRight(16f);
+        btnRow.add(closeBtn).width(200f).height(46f);
+        dialog.getButtonTable().add(btnRow);
+
+        dialog.show(stage);
+        stage.setKeyboardFocus(pathField);
+    }
+
+    /**
+     * Faithful to ConsoleRenderer.showHowToPlay(30) + quick buttons for Prologue, Codex, and Audio.
+     */
+    private void showHowToPlayDialog() {
+        Skin skin = assets.getSkin();
+        final Dialog dialog = new Dialog("", skin);
+        dialog.setBackground(skin.getDrawable("panel-dialogue"));
+        dialog.pad(24f, 32f, 22f, 32f);
+
+        Table content = dialog.getContentTable();
+        content.pad(6f);
+
+        content.add(new Label("HOW TO PLAY", skin, "title")).left().padBottom(10f).row();
+
+        String[] rules = {
+            "- Pick an alien and a level. Each alien asks one type of question.",
+            "- A right answer hits the alien. Answers in a row add up to +50% damage.",
+            "- A wrong answer lets the alien strike, and the question comes back later.",
+            "- Answer within " + ConsoleMain.ANSWER_TIME_LIMIT_SECONDS + " seconds, or it counts as a miss.",
+            "- Every 3 right answers in a row earn a power-up (up to 3).",
+            "- Squad: 2 or 3 pilots take turns against a level 3 boss (Pilot 1 uses Sword, Pilot 2 uses Gun, Pilot 3 uses Spear). A pilot at 0 hull is skipped; the squad loses when every pilot is down."
+        };
+        for (String r : rules) {
+            Label rl = new Label(r, skin, "default");
+            rl.setWrap(true);
+            content.add(rl).width(660f).left().padBottom(5f).row();
+        }
+
+        content.add(new Label("Battle commands & controls:", skin, "gold")).left().padTop(8f).padBottom(4f).row();
+        Label cmdLbl = new Label(
+                "  /1, /2, /3 (or click Boon Slot buttons) -- use a power-up before you answer\n"
+                + "  /help (or click ? HELP) -- show these rules again\n"
+                + "  /quit (or click RETREAT) -- give up the battle",
+                skin, "small");
+        cmdLbl.setColor(CosmicTheme.ASTRAL_CYAN);
+        content.add(cmdLbl).width(660f).left().padBottom(14f).row();
+
+        Table extraRow = new Table();
+        TextButton prologueBtn = new TextButton("WATCH PROLOGUE", skin, "boon");
+        prologueBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                dialog.hide();
+                game.setScreen(new PrologueScreen(game));
+            }
+        });
+
+        TextButton codexBtn = new TextButton("CHARACTER CODEX", skin, "boon");
+        codexBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                dialog.hide();
+                game.setScreen(new CodexScreen(game));
+            }
+        });
+
+        final TextButton audioBtn = new TextButton(
+                CosmicAudio.isMuted() ? "AUDIO: MUTED" : "AUDIO: ON", skin, "utility");
+        audioBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.toggleMute();
+                CosmicAudio.playClick();
+                audioBtn.setText(CosmicAudio.isMuted() ? "AUDIO: MUTED" : "AUDIO: ON");
+            }
+        });
+
+        TextButton closeBtn = new TextButton("CLOSE", skin, "utility");
+        closeBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                dialog.hide();
+            }
+        });
+
+        extraRow.add(prologueBtn).width(185f).height(44f).padRight(10f);
+        extraRow.add(codexBtn).width(185f).height(44f).padRight(10f);
+        extraRow.add(audioBtn).width(145f).height(44f).padRight(10f);
+        extraRow.add(closeBtn).width(120f).height(44f);
+        dialog.getButtonTable().add(extraRow);
+
+        dialog.show(stage);
+    }
+
+    private void launchSoloBattle(String pilotName, int alienIdx, int level) {
+        try {
+            Player player = new Player(pilotName);
+            Entity boss = ALIENS.get(alienIdx).apply(level);
+            SoloBossBattle battle = new SoloBossBattle(player, boss, game.createQuestionProvider(), game.getRandom());
+            battle.startBattle();
+            game.setScreen(new BattleScreen(game, battle, alienIdx, level, false));
+        } catch (Exception ex) {
+            showErrorDialog("Cannot Start Solo Battle", ex.getMessage());
+        }
+    }
+
+    private void launchSquadBattle(int pilotCount, String[] pilotNames, int alienIdx) {
+        try {
+            Team team = new Team("Squad");
+            for (int i = 0; i < pilotCount; i++) {
+                team.addPlayer(new Player(pilotNames[i]));
+            }
+            Entity boss = ALIENS.get(alienIdx).apply(SquadBossBattle.BOSS_LEVEL);
+            SquadBossBattle battle = new SquadBossBattle(team, boss, game.createQuestionProvider(), game.getRandom());
+            battle.startBattle();
+            game.setScreen(new BattleScreen(game, battle, alienIdx, SquadBossBattle.BOSS_LEVEL, true));
+        } catch (Exception ex) {
+            showErrorDialog("Cannot Start Squad Battle", ex.getMessage());
+        }
+    }
+
+    private void showErrorDialog(String titleText, String message) {
+        Skin skin = assets.getSkin();
+        Dialog dialog = new Dialog("", skin);
+        dialog.setBackground(skin.getDrawable("panel-crimson"));
+        dialog.pad(20f);
+        dialog.getContentTable().add(new Label(titleText, skin, "gold")).left().padBottom(8f).row();
+        Label msg = new Label(message == null ? "Unknown error" : message, skin, "default");
+        msg.setWrap(true);
+        dialog.getContentTable().add(msg).width(420f).padBottom(12f).row();
+        dialog.button("OK", true);
+        dialog.show(stage);
+    }
+
+    @Override
     public void render(float delta) {
         animTime += delta;
         ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
