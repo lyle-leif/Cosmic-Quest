@@ -236,10 +236,167 @@ public class MainMenuScreen extends ScreenAdapter {
      */
     private void showSoloBattleDialog() {
         Skin skin = assets.getSkin();
-    private void showSoloBattleDialog() {}
+        final Dialog dialog = new Dialog("", skin);
+        dialog.setBackground(skin.getDrawable("panel-dialogue"));
+        dialog.pad(26f, 34f, 24f, 34f);
+
+        final Table content = dialog.getContentTable();
+        content.pad(6f);
+
+        final int[] step = {1};
+        final String[] pilotName = {"Pilot"};
+        final int[] chosenAlienIdx = {0};
+
+        final Label badgeLabel = new Label("", skin, "cyan");
+        final Label titleLabel = new Label("", skin, "title");
+        final Label subLabel = new Label("", skin, "muted");
+
+        content.add(badgeLabel).left().padBottom(2f).row();
+        content.add(titleLabel).left().padBottom(4f).row();
+        content.add(subLabel).left().padBottom(14f).row();
+
+        final Table body = new Table();
+        content.add(body).width(668f).minHeight(205f).center().row();
+
+        final TextButton backBtn = new TextButton("<< BACK", skin, "utility");
+        final TextButton cancelBtn = new TextButton("CANCEL", skin, "utility");
+
+        final Runnable[] renderStep = new Runnable[1];
+        renderStep[0] = () -> {
+            body.clearChildren();
+
+            if (step[0] == 1) {
+                badgeLabel.setText("SOLO BATTLE   //   STEP 1 OF 3");
+                titleLabel.setText("ENTER PILOT NAME");
+                subLabel.setText("Register your pilot before choosing an alien opponent.");
+                backBtn.setVisible(false);
+
+                Table pilotCard = buildSinglePilotEntryCard(
+                        0,
+                        "Pilot",
+                        pilotName[0],
+                        "Pilot name (blank for Pilot):",
+                        "CONFIRM PILOT  >>",
+                        chosenName -> {
+                            CosmicAudio.playClick();
+                            pilotName[0] = chosenName;
+                            step[0] = 2;
+                            renderStep[0].run();
+                        });
+                body.add(pilotCard).width(656f).center().row();
+
+            } else if (step[0] == 2) {
+                badgeLabel.setText("SOLO BATTLE   //   STEP 2 OF 3   (Pilot: " + pilotName[0] + ")");
+                titleLabel.setText("CHOOSE AN ALIEN");
+                subLabel.setText("Select which alien to fight (lesson: " + game.getLessonName() + "):");
+                backBtn.setVisible(true);
+
+                QuestionGenerator gen = game.createGenerator();
+                List<Integer> availableIndices = new ArrayList<>();
+                for (int i = 0; i < ALIENS.size(); i++) {
+                    Entity sample = ALIENS.get(i).apply(1);
+                    if (gen.supports(sample.getQuestionType())) {
+                        availableIndices.add(i);
+                    }
+                }
+
+                Table grid = new Table();
+                for (int listPos = 0; listPos < availableIndices.size(); listPos++) {
+                    final int alienIdx = availableIndices.get(listPos);
+                    Entity sample = ALIENS.get(alienIdx).apply(1);
+                    String labelText = sample.getName().toUpperCase() + "\n" + sample.getSpecialMove();
+                    TextButton card = new TextButton(labelText, skin, "boon");
+                    card.getLabel().setWrap(true);
+                    card.pad(10f, 14f, 10f, 14f);
+                    card.addListener(new ClickListener() {
+                        @Override
+                        public void clicked(InputEvent event, float x, float y) {
+                            CosmicAudio.playClick();
+                            chosenAlienIdx[0] = alienIdx;
+                            step[0] = 3;
+                            renderStep[0].run();
+                        }
+                    });
+                    grid.add(card).width(318f).height(84f).pad(6f);
+                    if (listPos % 2 == 1) {
+                        grid.row();
+                    }
+                }
+                body.add(grid).center().row();
+
+            } else {
+                Entity sample = ALIENS.get(chosenAlienIdx[0]).apply(1);
+                badgeLabel.setText("SOLO BATTLE   //   STEP 3 OF 3   (" + pilotName[0] + " vs " + sample.getName() + ")");
+                titleLabel.setText("CHOOSE A LEVEL");
+                subLabel.setText(sample.getName() + " -- " + sample.getSpecialMove());
+                backBtn.setVisible(true);
+
+                String[] levelLabels = {"LEVEL 1\nInitiate", "LEVEL 2\nVeteran", "LEVEL 3\nBoss"};
+                Table lvlRow = new Table();
+                for (int l = 0; l < 3; l++) {
+                    final int levelVal = l + 1;
+                    Entity lvlEntity = ALIENS.get(chosenAlienIdx[0]).apply(levelVal);
+                    String btnText = levelLabels[l] + "\n(" + lvlEntity.getMaxHp() + " Hull  |  " + lvlEntity.getAttackPower() + " ATK)";
+                    TextButton lvlBtn = new TextButton(btnText, skin, "boon");
+                    lvlBtn.pad(12f, 14f, 12f, 14f);
+                    lvlBtn.addListener(new ClickListener() {
+                        @Override
+                        public void clicked(InputEvent event, float x, float y) {
+                            CosmicAudio.playBoonActivate();
+                            dialog.hide();
+                            launchSoloBattle(pilotName[0], chosenAlienIdx[0], levelVal);
+                        }
+                    });
+                    lvlRow.add(lvlBtn).width(206f).height(98f).pad(8f);
+                }
+                body.add(lvlRow).center().row();
+            }
+
+            dialog.pack();
+            dialog.setPosition(
+                    Math.round((CosmicTheme.VIRTUAL_WIDTH - dialog.getWidth()) / 2f),
+                    Math.round((CosmicTheme.VIRTUAL_HEIGHT - dialog.getHeight()) / 2f));
+        };
+
+        backBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                if (step[0] > 1) {
+                    step[0]--;
+                    renderStep[0].run();
+                }
+            }
+        });
+
+        cancelBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                dialog.hide();
+            }
+        });
+
+        Table footer = new Table();
+        footer.add(backBtn).width(180f).height(42f).left().padRight(260f);
+        footer.add(cancelBtn).width(180f).height(42f).right();
+        dialog.getButtonTable().add(footer).padTop(10f);
+
+        dialog.show(stage);
+        renderStep[0].run();
+    }
+
+    /**
+     * Faithful to ConsoleMain.playSquad() with ONE-SLIDE-AT-A-TIME Pilot Registration:
+     * - Slide 0: "HOW MANY PILOTS?" (2 Pilots or 3 Pilots)
+     * - Slide 1: Pilot 1 Name + Portrait & Sword Sprite
+     * - Slide 2: Pilot 2 Name + Portrait & Star-Gun Sprite
+     * - Slide 3 (if 3 pilots): Pilot 3 Name + Portrait & Astral Spear Sprite
+     * - Final Slide: "CHOOSE AN ALIEN" (Level 3 Boss)
     private void showSquadBattleDialog() {}
     private void showLoadLessonDialog() {}
     private void showHowToPlayDialog() {}
+    private void launchSoloBattle(String pilotName, int alienIdx, int level) {}
 
     public void render(float delta) {
         animTime += delta;
