@@ -1,0 +1,247 @@
+package com.neurolink.cosmicquest.screens;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.ScreenAdapter;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.ScreenUtils;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.neurolink.cosmicquest.CosmicQuestGame;
+import com.neurolink.cosmicquest.logic.Term;
+import com.neurolink.cosmicquest.ui.CosmicAssets;
+import com.neurolink.cosmicquest.ui.CosmicAudio;
+import com.neurolink.cosmicquest.ui.CosmicTheme;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Pantheon Codex & Art Gallery Screen.
+ * Showcases all 5 characters' Detailed Hades Portraits alongside their 1-to-1
+ * 24-Bit Pixel Battle Sprites, combat mechanics, and loaded lesson knowledge.
+ */
+public class CodexScreen extends ScreenAdapter {
+
+    private final CosmicQuestGame game;
+    private final CosmicAssets assets;
+    private final Stage stage;
+    private int selectedEntry = 0;
+    private float animTime = 0f;
+
+    private Label entryTitleLabel;
+    private Label entrySubLabel;
+    private Label entryLoreLabel;
+    private Label entryMechanicLabel;
+    private final TextButton[] tabButtons = new TextButton[7];
+
+    private static final String[] NAMES = {
+        "CADET VANGUARD (STYGIAN STAR-BLADE)",
+        "CADET STRIKER (ADAMANT STAR-GUN)",
+        "CADET LANCER (ETERNAL ASTRAL SPEAR)",
+        "VOID BRUTE (EVENT HORIZON TITAN)",
+        "STAR WEAVER (ASTRAL LOOM ORACLE)",
+        "NEBULA LICH (CRIMSON NECROPOLIS)",
+        "LUNAR BEAST (SHATTERED MOON HOUND)"
+    };
+
+    private static final String[] SUBTITLES = {
+        "Squad Hero I (Sword)  //  Solo & Squad Lead Challenger",
+        "Squad Hero II (Gun)  //  Long-Range Plasma Marksman",
+        "Squad Hero III (Spear)  //  Astral Valkyrie Lancer",
+        "Guardian Boss I  //  Identification Trial",
+        "Guardian Boss II  //  Enumeration Trial",
+        "Guardian Boss III  //  Multiple Choice Trial",
+        "Guardian Boss IV  //  Reasoning Trial"
+    };
+
+    private static final String[] LORE = {
+        "Clad in dark obsidian space-armor, a crimson underworld toga, and a golden laurel wreath over spiky dark hair with heterochromia eyes. Wields the Stygian Star-Blade in close-quarters dash slashes.",
+        "A cool, sharp-eyed cosmic sharpshooter with swept-back silver hair, a golden crescent-laurel headband, and an emerald targeting reticle. In Squad Pantheon mode, he steps in on Turn 2 to fire emerald-cyan plasma volleys from his Adamant Star-Gun.",
+        "A fierce cosmic valkyrie with flowing crimson-copper hair, a golden winged laurel circlet, and a teal astral cloak over bronze-obsidian armor. In Squad Pantheon mode, she vaults into battle on Turn 3 to thrust her Eternal Astral Spear.",
+        "A colossal four-horned obsidian juggernaut whose chest houses a raging crimson singularity. Its pauldrons are carved with skull reliefs that glow with molten cracks.",
+        "An enigmatic six-eyed celestial sovereign crowned with a golden crescent halo and violet nebula ribbons, spinning fate-threads across the Astral Loom.",
+        "An undead arch-sovereign wearing a jagged golden crown and bone pauldrons over tattered crimson vestments, wielding a floating emerald-and-magenta phylactery orb.",
+        "A ferocious horned cosmic predator wreathed in cyan lightning fur and golden skull-crescent armor, prowling the craters of the Shattered Moon."
+    };
+
+    private static final String[] MECHANICS = {
+        "SWORD COMBAT MECHANIC: Answering correctly builds Streak (+5 bonus damage per streak, up to +15). Every 3rd consecutive right answer grants a random Pantheon Boon: Aegis Shield, Hull Repair, Double Damage, or Oracle Hint!",
+        "GUNNER SQUAD MECHANIC: Takes every 2nd turn in Squad Pantheon mode! Switches both the Hades Dialogue Portrait and the 2D Pixel Sprite to Cadet Striker, firing rapid-fire emerald plasma rail-beams across the arena.",
+        "SPEAR SQUAD MECHANIC: Takes every 3rd turn in Squad Pantheon mode! Switches both the Hades Dialogue Portrait and the 2D Pixel Sprite to Cadet Lancer, leaping across the arena with a piercing violet-gold spear thrust.",
+        "TRIAL & SPECIAL MOVE: Presents a definition and 4 clickable Term Boon Cards. On a wrong answer or timeout, unleashes GRAVITY SLAM -- dealing hull damage and shrinking your next turn's timer by 5 seconds!",
+        "TRIAL & SPECIAL MOVE: Asks for all items in a category. Click every matching Rune Chip and press WEAVE & STRIKE! Partial matches still deal partial damage, but any miss triggers THREAD BIND -- locking one of your Power-Up Boons for 2 turns!",
+        "TRIAL & SPECIAL MOVE: Presents 4 clickable Multiple Choice (A-D) Boon Cards. Using an Oracle Hint eliminates 2 wrong options. On a miss, unleashes HEX BOLT -- shuffling the options when the question returns!",
+        "TRIAL & SPECIAL MOVE: Asks you to explain a concept using its sacred OOP keywords. Pick the Doctrine Card containing >= 60% of the keywords, or suffer LUNAR HOWL (+5 bonus claw damage)!"
+    };
+
+    private static final String[] PORTRAIT_PATHS = {
+        "portraits/portrait_cadet.png",
+        "portraits/portrait_cadet_gunner.png",
+        "portraits/portrait_cadet_spear.png",
+        "portraits/portrait_void_brute.png",
+        "portraits/portrait_star_weaver.png",
+        "portraits/portrait_nebula_lich.png",
+        "portraits/portrait_lunar_beast.png"
+    };
+
+    private static final String[] PIXEL_PATHS = {
+        "sprites/hero_cadet.png",
+        "sprites/hero_cadet_gunner.png",
+        "sprites/hero_cadet_spear.png",
+        "sprites/enemy_void_brute.png",
+        "sprites/enemy_star_weaver.png",
+        "sprites/enemy_nebula_lich.png",
+        "sprites/enemy_lunar_beast.png"
+    };
+
+    public CodexScreen(CosmicQuestGame game) {
+        this.game = game;
+        this.assets = game.getAssets();
+        this.stage = new Stage(new FitViewport(CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT), game.getBatch());
+
+        buildUi();
+        refreshEntry();
+    }
+
+    @Override
+    public void show() {
+        Gdx.input.setInputProcessor(stage);
+    }
+
+    private void buildUi() {
+        Skin skin = assets.getSkin();
+
+        Table root = new Table();
+        root.setFillParent(true);
+        root.pad(18f, 24f, 18f, 24f);
+        stage.addActor(root);
+
+        // Header
+        Table header = new Table();
+        header.setBackground(skin.getDrawable("panel-dark"));
+        header.pad(10f, 18f, 10f, 18f);
+        header.add(new Label("PANTHEON CODEX  //  HADES PORTRAITS & 24-BIT PIXEL SPRITES", skin, "gold")).expandX().left();
+
+        TextButton backBtn = new TextButton("BACK TO MAIN MENU", skin, "utility");
+        backBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                game.setScreen(new MainMenuScreen(game));
+            }
+        });
+        header.add(backBtn).width(210f).height(38f).right();
+        root.add(header).growX().height(64f).colspan(2).padBottom(14f).row();
+
+        // Character Selector Tabs
+        Table tabRow = new Table();
+        String[] tabNames = {
+            "1. SWORD",
+            "2. STAR-GUN",
+            "3. SPEAR",
+            "4. VOID BRUTE",
+            "5. STAR WEAVER",
+            "6. NEBULA LICH",
+            "7. LUNAR BEAST"
+        };
+        for (int i = 0; i < 7; i++) {
+            final int idx = i;
+            TextButton tBtn = new TextButton(tabNames[i], skin, "boon");
+            tBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    CosmicAudio.playClick();
+                    selectedEntry = idx;
+                    refreshEntry();
+                }
+            });
+            tabButtons[i] = tBtn;
+            tabRow.add(tBtn).growX().height(42f).padRight(i < 6 ? 6f : 0f);
+        }
+        root.add(tabRow).growX().colspan(2).padBottom(14f).row();
+
+        // Main Content Split: Left reserved for Side-by-Side Portrait + Pixel Sprite, Right holds Lore & Loaded Lesson Scroll
+        Table leftVisualCard = new Table();
+        leftVisualCard.setBackground(skin.getDrawable("panel-dialogue"));
+        leftVisualCard.pad(16f);
+        leftVisualCard.add(new Label("1-TO-1 DESIGN COMPARISON", skin, "gold")).top().left().expandX().row();
+        leftVisualCard.add().expandY().row();
+
+        Table rightInfoCard = new Table();
+        rightInfoCard.setBackground(skin.getDrawable("panel-dialogue"));
+        rightInfoCard.pad(18f);
+
+        entryTitleLabel = new Label("", skin, "title");
+        entrySubLabel = new Label("", skin, "cyan");
+        entryLoreLabel = new Label("", skin, "default");
+        entryLoreLabel.setWrap(true);
+        entryMechanicLabel = new Label("", skin, "small");
+        entryMechanicLabel.setColor(CosmicTheme.TEXT_WARM);
+        entryMechanicLabel.setWrap(true);
+
+        rightInfoCard.add(entryTitleLabel).width(640f).left().row();
+        rightInfoCard.add(entrySubLabel).width(640f).left().padBottom(10f).row();
+        rightInfoCard.add(entryLoreLabel).width(640f).left().padBottom(10f).row();
+        rightInfoCard.add(entryMechanicLabel).width(640f).left().padBottom(14f).row();
+
+        // Active Lesson Knowledge Scroll
+        rightInfoCard.add(new Label("ACTIVE LESSON SCROLL: " + game.getLessonName(), skin, "gold")).left().padBottom(6f).row();
+        Table lessonTable = new Table();
+        lessonTable.pad(8f);
+        for (Term t : game.getLessonData().getTerms()) {
+            Label tl = new Label("* " + t.getTerm() + " :: " + t.getDefinition(), skin, "small");
+            tl.setWrap(true);
+            lessonTable.add(tl).width(610f).left().padBottom(5f).row();
+        }
+        for (Map.Entry<String, List<String>> en : game.getLessonData().getEnumerations().entrySet()) {
+            Label el = new Label("[ENUM] " + en.getKey() + " :: " + String.join(", ", en.getValue()), skin, "small");
+            el.setColor(CosmicTheme.ASTRAL_CYAN);
+            el.setWrap(true);
+            lessonTable.add(el).width(610f).left().padBottom(5f).row();
+        }
+        ScrollPane scroll = new ScrollPane(lessonTable, skin);
+        scroll.setFadeScrollBars(false);
+        rightInfoCard.add(scroll).width(640f).growY();
+
+        root.add(leftVisualCard).width(520f).growY().padRight(16f);
+        root.add(rightInfoCard).width(688f).growY();
+    }
+
+    private void refreshEntry() {
+        for (int i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].setChecked(i == selectedEntry);
+        }
+        entryTitleLabel.setText(NAMES[selectedEntry]);
+        entrySubLabel.setText(SUBTITLES[selectedEntry]);
+        entryLoreLabel.setText(LORE[selectedEntry]);
+        entryMechanicLabel.setText(MECHANICS[selectedEntry]);
+    }
+
+    @Override
+    public void render(float delta) {
+        animTime += delta;
+        ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
+
+        stage.getViewport().apply();
+        SpriteBatch batch = game.getBatch();
+        batch.setProjectionMatrix(stage.getCamera().combined);
+
+    @Override
+    public void resize(int width, int height) {
+        stage.getViewport().update(width, height, true);
+    }
+
+    @Override
+    public void dispose() {
+        stage.dispose();
+    }
+}
