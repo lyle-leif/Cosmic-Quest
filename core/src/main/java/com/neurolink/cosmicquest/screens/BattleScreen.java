@@ -690,24 +690,296 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     @Override
-    @Override
     public void render(float delta) {
         animTime += delta;
+        updateBattleLogic(delta);
+
         ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
         stage.getViewport().apply();
+
         SpriteBatch batch = game.getBatch();
         ShapeRenderer shapes = game.getShapes();
+
+        // Screen shake offset during impacts
+        float shakeX = 0f;
+        float shakeY = 0f;
+        if (screenShakeTime > 0f) {
+            screenShakeTime -= delta;
+            shakeX = MathUtils.random(-screenShakeIntensity, screenShakeIntensity);
+            shakeY = MathUtils.random(-screenShakeIntensity, screenShakeIntensity);
+        }
+
+        stage.getCamera().position.set(
+            CosmicTheme.VIRTUAL_WIDTH * 0.5f + shakeX,
+            CosmicTheme.VIRTUAL_HEIGHT * 0.5f + shakeY,
+            0f
+        );
+        stage.getCamera().update();
         batch.setProjectionMatrix(stage.getCamera().combined);
         shapes.setProjectionMatrix(stage.getCamera().combined);
-        Entity boss = battle.getEntity();
-        batch.begin();
-        batch.draw(assets.getBossBackdrop(boss), 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
-        batch.draw(assets.getCadetPixelSprite(getDisplayedHeroIndex(), false, false), HERO_BASE_X, HERO_BASE_Y, 206f, 184f);
-        batch.draw(assets.getBossPixelSprite(boss, false), BOSS_BASE_X, BOSS_BASE_Y, 210f, 200f);
-        batch.end();
+
+        // 1. Always render the 2D Pixel Battle Stage (Pokemon-style arena + 24-bit pixel characters + HUD)
+        render2DPixelBattleArena(batch, shapes, delta);
+
+        // 2. Render the Detailed Hades Dialogue Layer (Bust Portraits + Ornate Q&A Box) based on dialogueSlide
+        renderHadesDialogueOverlay(batch, shapes);
+
+        // Reset camera center for UI Stage
+        stage.getCamera().position.set(CosmicTheme.VIRTUAL_WIDTH * 0.5f, CosmicTheme.VIRTUAL_HEIGHT * 0.5f, 0f);
+        stage.getCamera().update();
+
+        dialogueRoot.setColor(1f, 1f, 1f, dialogueSlide);
+        dialogueRoot.setVisible(dialogueSlide > 0.02f);
+
         stage.act(delta);
         stage.draw();
     }
+
+    private void updateBattleLogic(float delta) {
+        // Smoothly interpolate displayed HP bars
+        displayedHeroHp = MathUtils.lerp(displayedHeroHp, getActiveHeroHp(), Math.min(1f, delta * 8f));
+        displayedBossHp = MathUtils.lerp(displayedBossHp, battle.getEntity().getHp(), Math.min(1f, delta * 8f));
+
+        // Update particles & floating combat callouts
+        for (int i = sparks.size() - 1; i >= 0; i--) {
+            Spark s = sparks.get(i);
+            s.x += s.vx * delta;
+            s.y += s.vy * delta;
+            s.vy -= 220f * delta;
+            s.life -= delta;
+            if (s.life <= 0f) {
+                sparks.remove(i);
+            }
+        }
+        for (int i = floatingTexts.size() - 1; i >= 0; i--) {
+            FloatingText ft = floatingTexts.get(i);
+            ft.y += ft.vy * delta;
+            ft.life -= delta;
+            if (ft.life <= 0f) {
+                floatingTexts.remove(i);
+            }
+        }
+
+        if (phase == Phase.PRE_FIGHT_INTRO) {
+            dialogueSlide = MathUtils.lerp(dialogueSlide, 1f, Math.min(1f, delta * 10f));
+        } else if (phase == Phase.HADES_DIALOGUE) {
+            // Slide Hades portraits & dialogue box IN
+            dialogueSlide = MathUtils.lerp(dialogueSlide, 1f, Math.min(1f, delta * 10f));
+
+            remainingTime -= delta;
+            if (remainingTime <= 0f) {
+                remainingTime = 0f;
+                triggerTimeout();
+            }
+        } else {
+            // Slide Hades portraits & dialogue box OUT so the 2D Pixel Battle Stage takes center stage
+            dialogueSlide = MathUtils.lerp(dialogueSlide, 0f, Math.min(1f, delta * 12f));
+            cutsceneTimer += delta;
+
+            triggerCutsceneImpactEvents();
+
+            if (cutsceneTimer >= cutsceneDuration) {
+                finishCutsceneAndContinue();
+            }
+        }
+    }
+
+    private void triggerCutsceneImpactEvents() {}
+    private void finishCutsceneAndContinue() {
+        if (!battle.isOver()) { battle.nextTurn(); prepareCurrentTurnQuestion(); }
+    }
+
+    private void render2DPixelBattleArena(SpriteBatch batch, ShapeRenderer shapes, float delta) {
+        Entity boss = battle.getEntity();
+        Texture backdrop = assets.getBossBackdrop(boss);
+        Color bossAccent = assets.getBossAccentColor(boss);
+
+        // Compute character offsets for idle breathing + 2D pixel attack animations
+        float idleBob = MathUtils.sin(animTime * 3.4f) * 5f;
+        float heroOffsetX = 0f;
+        float heroOffsetY = idleBob;
+        float bossOffsetX = 0f;
+        float bossOffsetY = -idleBob * 0.8f;
+        boolean heroHurtSprite = false;
+        boolean heroAttackingPose = false;
+        boolean bossAttackingPose = false;
+        boolean heroFlashCrimson = false;
+        boolean bossFlashWhite = false;
+        float slashProgress = -1f;
+        float bossBeamProgress = -1f;
+
+        int heroIdx = getDisplayedHeroIndex();
+
+        if (phase == Phase.PIXEL_CUTSCENE && lastTurnResult != null) {
+            boolean hasPlayerAttack = lastTurnResult.getDamageDealt() > 0;
+            boolean hasBossAttack = !lastTurnResult.isCorrect();
+
+            if (hasPlayerAttack && cutsceneTimer < 1.05f) {
+                float t = MathUtils.clamp(cutsceneTimer / 0.95f, 0f, 1f);
+                heroAttackingPose = (cutsceneTimer >= 0.06f && cutsceneTimer <= 0.88f);
+                if (heroIdx == 1) {
+                    // Gunner (Star-Gun): Steps into sharpshooter firing stance and recoils as emerald plasma rounds fire!
+                    if (t < 0.35f) {
+                        float p = Interpolation.pow2Out.apply(t / 0.35f);
+                        heroOffsetX = p * 95f;
+                        heroOffsetY = p * 14f;
+                    } else {
+                        float p = Interpolation.pow2In.apply((t - 0.35f) / 0.65f);
+                        float recoil = MathUtils.sin(t * 28f) * 12f;
+                        heroOffsetX = (1f - p) * 95f - Math.abs(recoil);
+                        heroOffsetY = (1f - p) * 14f;
+                    }
+                } else if (heroIdx == 2) {
+                    // Lancer (Astral Spear): High valkyrie leap and long-reach spear thrust!
+                    if (t < 0.45f) {
+                        float p = Interpolation.pow2Out.apply(t / 0.45f);
+                        heroOffsetX = p * 455f;
+                        heroOffsetY = p * 82f + MathUtils.sin(p * MathUtils.PI) * 58f;
+                    } else {
+                        float p = Interpolation.pow2In.apply((t - 0.45f) / 0.55f);
+                        heroOffsetX = (1f - p) * 455f;
+                        heroOffsetY = (1f - p) * 82f;
+                    }
+                } else {
+                    // Vanguard (Stygian Sword): Dash lunge toward Boss platform and slash!
+                    if (t < 0.45f) {
+                        float p = Interpolation.pow2Out.apply(t / 0.45f);
+                        heroOffsetX = p * 440f;
+                        heroOffsetY = p * 70f + MathUtils.sin(p * MathUtils.PI) * 38f;
+                    } else {
+                        float p = Interpolation.pow2In.apply((t - 0.45f) / 0.55f);
+                        heroOffsetX = (1f - p) * 440f;
+                        heroOffsetY = (1f - p) * 70f;
+                    }
+                }
+                if (cutsceneTimer >= 0.22f && cutsceneTimer <= 0.80f) {
+                    slashProgress = (cutsceneTimer - 0.22f) / 0.58f;
+                }
+                if (cutsceneTimer >= 0.40f && cutsceneTimer <= 0.76f) {
+                    bossFlashWhite = true;
+                    bossOffsetX = MathUtils.sin((cutsceneTimer - 0.40f) * 38f) * 26f + 22f;
+                }
+            }
+
+            float bossStart = hasPlayerAttack ? 1.0f : 0.05f;
+            if (hasBossAttack && cutsceneTimer >= bossStart) {
+                float local = cutsceneTimer - bossStart;
+                float t = MathUtils.clamp(local / 0.95f, 0f, 1f);
+                bossAttackingPose = (local >= 0.06f && local <= 0.88f);
+                if (t < 0.42f) {
+                    float p = Interpolation.pow2Out.apply(t / 0.42f);
+                    bossOffsetX = -p * 420f;
+                    bossOffsetY = -p * 65f;
+                } else {
+                    float p = Interpolation.pow2In.apply((t - 0.42f) / 0.58f);
+                    bossOffsetX = -(1f - p) * 420f;
+                    bossOffsetY = -(1f - p) * 65f;
+                }
+                if (local >= 0.25f && local <= 0.78f) {
+                    bossBeamProgress = (local - 0.25f) / 0.53f;
+                }
+                if (local >= 0.38f && local <= 0.85f) {
+                    heroHurtSprite = lastTurnResult.getDamageTaken() > 0;
+                    heroFlashCrimson = lastTurnResult.getDamageTaken() > 0;
+                    heroOffsetX = -MathUtils.sin((local - 0.38f) * 35f) * 22f - 18f;
+                }
+            }
+        }
+
+        // Draw Cosmic Backdrop
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(backdrop, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+        batch.end();
+
+        // Draw Pokemon-style 2D Arena Platforms
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+
+        // Cadet Arena Pedestal (Bottom-Left)
+        shapes.setColor(0.06f, 0.05f, 0.12f, 0.82f);
+        shapes.ellipse(HERO_BASE_X - 35f, HERO_BASE_Y - 28f, 250f, 68f);
+        shapes.setColor(CosmicTheme.ASTRAL_CYAN.r, CosmicTheme.ASTRAL_CYAN.g, CosmicTheme.ASTRAL_CYAN.b, 0.38f);
+        shapes.ellipse(HERO_BASE_X - 20f, HERO_BASE_Y - 20f, 220f, 52f);
+
+        // Boss Arena Pedestal (Top-Right)
+        shapes.setColor(0.08f, 0.04f, 0.12f, 0.84f);
+        shapes.ellipse(BOSS_BASE_X - 30f, BOSS_BASE_Y - 26f, 265f, 72f);
+        shapes.setColor(bossAccent.r, bossAccent.g, bossAccent.b, 0.42f);
+        shapes.ellipse(BOSS_BASE_X - 15f, BOSS_BASE_Y - 18f, 235f, 54f);
+        shapes.end();
+
+        // Draw 16-Bit Full-Body Pixel Characters (Switches between Idle Stance and Dynamic Attack Stance!)
+        batch.begin();
+        Texture cadetTex = assets.getCadetPixelSprite(heroIdx, heroHurtSprite, heroAttackingPose);
+        Texture bossTex = assets.getBossPixelSprite(boss, bossAttackingPose);
+
+        float hx = HERO_BASE_X + heroOffsetX;
+        float hy = HERO_BASE_Y + heroOffsetY;
+        float bx = BOSS_BASE_X + bossOffsetX;
+        float by = BOSS_BASE_Y + bossOffsetY;
+
+        if (heroFlashCrimson) {
+            batch.setColor(1f, 0.35f, 0.45f, 1f);
+        } else {
+            batch.setColor(Color.WHITE);
+        }
+        batch.draw(cadetTex, hx, hy, 206f, 184f);
+
+        if (bossFlashWhite) {
+            batch.setColor(1f, 0.45f, 0.45f, 1f);
+        } else {
+            batch.setColor(Color.WHITE);
+        }
+        batch.draw(bossTex, bx, by, 210f, 200f);
+        batch.setColor(Color.WHITE);
+        batch.end();
+
+        shapes.end();
+            shapes.rect(s.x - s.size * 0.5f, s.y - s.size * 0.5f, s.size, s.size);
+        }
+        shapes.end();
+
+        // If Cadet has active Shield turns, draw glowing Aegis bubble around the pixel Cadet
+        Player activePlayer = getActivePlayer();
+        if (activePlayer != null && activePlayer.getShieldTurns() > 0) {
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            shapes.begin(ShapeRenderer.ShapeType.Line);
+            shapes.setColor(CosmicTheme.ASTRAL_CYAN);
+            shapes.circle(hx + 86f, hy + 86f, 96f + MathUtils.sin(animTime * 6f) * 4f);
+            shapes.end();
+        }
+
+        // Draw Floating Combat Callout Numbers
+        batch.begin();
+        for (FloatingText ft : floatingTexts) {
+            float alpha = MathUtils.clamp(ft.life / ft.maxLife, 0f, 1f);
+            if (ft.large) {
+                assets.fontLarge.setColor(ft.color.r, ft.color.g, ft.color.b, alpha);
+                assets.fontLarge.draw(batch, ft.text, ft.x, ft.y);
+            } else {
+                assets.fontMedium.setColor(ft.color.r, ft.color.g, ft.color.b, alpha);
+                assets.fontMedium.draw(batch, ft.text, ft.x, ft.y);
+            }
+        }
+        assets.fontLarge.setColor(Color.WHITE);
+        assets.fontMedium.setColor(Color.WHITE);
+        batch.end();
+
+        // Draw Pokemon-style Top HUD Status Cards (Cadet HP Card on Left, Boss HP Card on Right, Timer in Center)
+        renderTopBattleHud(batch, shapes);
+    }
+
+    private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {
+        Entity boss = battle.getEntity();
+        Player current = getActivePlayer();
+        int heroHp = getActiveHeroHp();
+        int heroMaxHp = getActiveHeroMaxHp();
+        float heroRatio = MathUtils.clamp(displayedHeroHp / Math.max(1f, heroMaxHp), 0f, 1f);
+        shapes.end();
+    }
+    private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {}
+    private void renderHadesDialogueOverlay(SpriteBatch batch, ShapeRenderer shapes) {}
 
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
