@@ -1210,8 +1210,39 @@ public class BattleScreen extends ScreenAdapter {
      * Renders the high-detail Hades graphic-novel character bust portraits on the left & right
      * when in the HADES_DIALOGUE phase, sliding smoothly out when switching to the 2D Pixel Cutscene!
      */
-    private void renderHadesDialogueOverlay(SpriteBatch batch, ShapeRenderer shapes) {}
+    private void renderHadesDialogueOverlay(SpriteBatch batch, ShapeRenderer shapes) {
+        if (dialogueSlide <= 0.01f) {
+            return;
+        }
 
+        // Subtle atmospheric darkening over the lower half so the Hades portraits & gold box pop
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(0.03f, 0.02f, 0.07f, 0.42f * dialogueSlide);
+        shapes.rect(0f, 0f, CosmicTheme.VIRTUAL_WIDTH, 575f);
+        shapes.end();
+
+        Entity boss = battle.getEntity();
+        Texture cadetPortrait = assets.getCadetPortrait(getDialogueHeroIndex());
+        Texture bossPortrait = assets.getBossPortrait(boss);
+
+        float slideOffset = (1f - dialogueSlide) * 320f;
+        float portraitY = 328f;
+
+        batch.begin();
+        batch.setColor(1f, 1f, 1f, dialogueSlide);
+
+        // Left Detailed Hades Bust Portrait: The Cadet
+        batch.draw(cadetPortrait, 26f - slideOffset, portraitY, 250f, 250f);
+
+        // Right Detailed Hades Bust Portrait: The Alien Guardian Boss
+        batch.draw(bossPortrait, CosmicTheme.VIRTUAL_WIDTH - 276f + slideOffset, portraitY, 250f, 250f);
+
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
     }
