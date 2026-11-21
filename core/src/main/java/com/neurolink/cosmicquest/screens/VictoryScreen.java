@@ -244,7 +244,9 @@ public class VictoryScreen extends ScreenAdapter {
 
         float bob = MathUtils.sin(animTime * 3.5f) * 4f;
         batch.begin();
-        batch.draw(assets.getCadetPortrait(), 62f, 200f, 240f, 240f);
+        // Anchor the Cadet bust portrait flush on the bottom border of the card (y = 27f)
+        batch.draw(assets.getCadetPortrait(), 48f, 27f, 270f, 360f);
+        batch.draw(assets.getCadetPixelSprite(false), 225f, 44f + bob, 152f, 138f);
         batch.end();
     }
 
