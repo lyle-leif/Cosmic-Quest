@@ -437,10 +437,61 @@ public class BattleScreen extends ScreenAdapter {
                 }
                 optionsTable.add(card).width(564f).height(62f).pad(4f);
                 if (i % 2 == 1) {
+                    optionsTable.row();
                 }
             }
+        } else if (q instanceof IdentificationQuestion idQ) {
+            // Build 4 clickable Term Boon Cards (1 correct term + 3 distractor terms from LessonData)
+            List<String> choices = buildIdentificationChoices(idQ.getCorrectAnswer());
+            String[] badges = {"I", "II", "III", "IV"};
+            for (int i = 0; i < choices.size(); i++) {
+                final String chosenTerm = choices.get(i);
+                TextButton card = new TextButton("[" + badges[i] + "]  " + chosenTerm, skin, "boon");
+                card.getLabel().setAlignment(Align.left);
+                card.getLabel().setWrap(true);
+                card.pad(8f, 16f, 8f, 16f);
+                card.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        if (phase == Phase.HADES_DIALOGUE) {
+                            submitPlayerAnswer(chosenTerm);
+                        }
+                    }
+                });
+                optionsTable.add(card).width(564f).height(62f).pad(4f);
+                if (i % 2 == 1) {
+                    optionsTable.row();
         }
     }
+
+    private List<String> buildIdentificationChoices(String correctTerm) {
+        Set<String> pool = new LinkedHashSet<>();
+        pool.add(correctTerm);
+
+        List<Term> allTerms = new ArrayList<>(game.getLessonData().getTerms());
+        Collections.shuffle(allTerms, uiRandom);
+        for (Term t : allTerms) {
+            if (pool.size() >= 4) {
+                break;
+            }
+            if (!t.getTerm().equalsIgnoreCase(correctTerm)) {
+                pool.add(t.getTerm());
+            }
+        }
+        String[] fallbacks = {"Encapsulation", "Polymorphism", "Inheritance", "Abstraction", "Constructor"};
+        for (String fb : fallbacks) {
+            if (pool.size() >= 4) {
+                break;
+            }
+            if (!fb.equalsIgnoreCase(correctTerm)) {
+                pool.add(fb);
+            }
+        }
+        List<String> list = new ArrayList<>(pool);
+        Collections.shuffle(list, uiRandom);
+        return list;
+    }
+
     private void submitPlayerAnswer(String answer) {}
     @Override
     public void render(float delta) {
