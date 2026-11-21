@@ -131,7 +131,7 @@ public class GameOverScreen extends ScreenAdapter {
         rightCol.add(scroll).width(790f).height(175f).padBottom(14f).row();
 
         Table btnRow = new Table();
-        TextButton retryBtn = new TextButton("RISE AGAIN (RETRY)", skin);
+        TextButton retryBtn = new TextButton("RISE AGAIN", skin);
         retryBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
