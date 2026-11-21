@@ -160,6 +160,7 @@ public class BattleScreen extends ScreenAdapter {
         this.displayedBossHp = battle.getEntity().getHp();
 
         buildDialogueUi();
+        preparePreFightIntro();
     }
 
     @Override
@@ -282,6 +283,50 @@ public class BattleScreen extends ScreenAdapter {
         screenRoot.add(dialogueRoot).width(1204f).height(328f).bottom().padBottom(12f);
     }
 
+    private void preparePreFightIntro() {
+        phase = Phase.PRE_FIGHT_INTRO;
+        dialogueRoot.setTouchable(Touchable.enabled);
+        dialogueRoot.setVisible(true);
+
+        Entity boss = battle.getEntity();
+        speakerTitleLabel.setText(boss.getName().toUpperCase() + "  //  INVADER");
+        turnBadgeLabel.setText("PRE-BATTLE ENCOUNTER  |  LV." + boss.getLevel());
+        refreshHintAndBoons();
+
+        String bossTaunt;
+        String cadetReply;
+        if (boss instanceof VoidBrute) {
+            bossTaunt = "VOID BRUTE: \"The end is nigh, little earthborn! Your fragile colony shall be crushed into dust beneath my gravity!\"";
+            cadetReply = "THE CADET: \"Earth fell once. Nova Elysium stands -- let's see if your obsidian armor survives the Codex!\"";
+        } else if (boss instanceof StarWeaver) {
+            bossTaunt = "STAR WEAVER: \"Struggle all you wish, mortal... Every thread of humanity's fate is already spun, and tonight I cut the cord!\"";
+            cadetReply = "THE CADET: \"We didn't cross a galaxy just to get tangled in your web, Oracle!\"";
+        } else if (boss instanceof NebulaLich) {
+            bossTaunt = "NEBULA LICH: \"The end is nigh! Two worlds could not save your kind from extinction -- kneel before the Undying Sovereign!\"";
+            cadetReply = "THE CADET: \"Keep your phylacteries ready, Lich. Nova Elysium belongs to the living!\"";
+        } else {
+            bossTaunt = "LUNAR BEAST: \"Hear the howl of the final eclipse! Your dome cities will shatter and your bones will feed the crater!\"";
+            cadetReply = "THE CADET: \"All bark and cosmic lightning. Bite down on the Stygian Star-Blade!\"";
+        }
+
+        bossFlavorLabel.setText(bossTaunt);
+        questionTextLabel.setText(cadetReply);
+        hintBannerLabel.setColor(CosmicTheme.ASTRAL_CYAN);
+        hintBannerLabel.setText("GOVERNMENT MANDATE: Answer the Guardian's trials to channel the NeuroLink Codex into your blade!");
+
+        optionsTable.clearChildren();
+        TextButton beginBtn = new TextButton("DRAW STYGIAN STAR-BLADE  --  BEGIN Q&A TRIAL  >>", assets.getSkin());
+        beginBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playBoonActivate();
+                prepareCurrentTurnQuestion();
+            }
+        });
+        optionsTable.add(beginBtn).width(580f).height(58f).center();
+    }
+
+    private void prepareCurrentTurnQuestion() {}
     @Override
     public void render(float delta) {
         ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
