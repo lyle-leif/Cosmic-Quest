@@ -461,6 +461,30 @@ public class BattleScreen extends ScreenAdapter {
                 optionsTable.add(card).width(564f).height(62f).pad(4f);
                 if (i % 2 == 1) {
                     optionsTable.row();
+                }
+            }
+        } else if (q instanceof ReasoningQuestion rq) {
+            // Build 4 clickable Doctrine Explanation Cards (1 with the full keyword doctrine + 3 distractors)
+            List<String> choices = buildReasoningChoices(rq.getCorrectAnswer());
+            char[] badges = {'A', 'B', 'C', 'D'};
+            for (int i = 0; i < choices.size(); i++) {
+                final String chosenExplanation = choices.get(i);
+                String display = "[" + badges[i] + "]  " + truncateOption(chosenExplanation, 85);
+                TextButton card = new TextButton(display, skin, "boon");
+                card.getLabel().setAlignment(Align.left);
+                card.getLabel().setWrap(true);
+                card.pad(6f, 14f, 6f, 14f);
+                card.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        if (phase == Phase.HADES_DIALOGUE) {
+                            submitPlayerAnswer(chosenExplanation);
+                        }
+                    }
+                });
+                optionsTable.add(card).width(564f).height(62f).pad(4f);
+                if (i % 2 == 1) {
+                    optionsTable.row();
         }
     }
 
@@ -486,6 +510,36 @@ public class BattleScreen extends ScreenAdapter {
             if (!fb.equalsIgnoreCase(correctTerm)) {
                 pool.add(fb);
             }
+        }
+        List<String> list = new ArrayList<>(pool);
+        Collections.shuffle(list, uiRandom);
+        return list;
+    }
+
+    private List<String> buildReasoningChoices(String correctDefinition) {
+        Set<String> pool = new LinkedHashSet<>();
+        pool.add(correctDefinition);
+
+        List<Term> allTerms = new ArrayList<>(game.getLessonData().getTerms());
+        Collections.shuffle(allTerms, uiRandom);
+        for (Term t : allTerms) {
+            if (pool.size() >= 4) {
+                break;
+            }
+            if (!t.getDefinition().equalsIgnoreCase(correctDefinition)) {
+                pool.add(t.getDefinition());
+            }
+        }
+        String[] fallbacks = {
+            "Converts source code directly into machine-level bytecode without creating objects.",
+            "Allocates static memory addresses at compile time while forbidding dynamic dispatch.",
+            "Terminates all running threads immediately whenever a constructor is invoked."
+        };
+        for (String fb : fallbacks) {
+            if (pool.size() >= 4) {
+                break;
+            }
+            pool.add(fb);
         }
         List<String> list = new ArrayList<>(pool);
         Collections.shuffle(list, uiRandom);
