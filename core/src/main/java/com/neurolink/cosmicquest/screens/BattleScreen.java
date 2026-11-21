@@ -326,7 +326,59 @@ public class BattleScreen extends ScreenAdapter {
         optionsTable.add(beginBtn).width(580f).height(58f).center();
     }
 
-    private void prepareCurrentTurnQuestion() {}
+    private void prepareCurrentTurnQuestion() {
+        phase = Phase.HADES_DIALOGUE;
+        dialogueRoot.setTouchable(Touchable.enabled);
+        dialogueRoot.setVisible(true);
+        selectedEnumItems.clear();
+
+        Entity boss = battle.getEntity();
+        Player current = getActivePlayer();
+        Question q = battle.getCurrentQuestion();
+
+        // Apply Void Brute's Gravity Slam penalty if triggered on previous turn
+        maxTurnTime = gravitySlamActiveNextTurn
+                ? Math.max(8f, BASE_TURN_SECONDS - GRAVITY_SLAM_PENALTY)
+                : BASE_TURN_SECONDS;
+        remainingTime = maxTurnTime;
+        gravitySlamActiveNextTurn = false;
+
+        speakerTitleLabel.setText(boss.getName().toUpperCase());
+        int dialogueHeroIdx = getDialogueHeroIndex();
+        String weaponTag = getHeroWeaponName(dialogueHeroIdx);
+        String playerTag = current != null
+                ? current.getName().toUpperCase() + " [" + weaponTag + "]  (STREAK x" + current.getStreak()
+                        + (battle.isDoubleDamageNext() ? " | 2X DMG" : "") + ")"
+                : "CADET";
+        turnBadgeLabel.setText("TURN " + battle.getCurrentTurn() + "  |  " + playerTag);
+        bossFlavorLabel.setText(assets.getBossPromptIntro(boss, battle.getCurrentTurn()));
+
+        String promptPrefix;
+        if (q instanceof IdentificationQuestion) {
+            promptPrefix = "[IDENTIFY THE TERM]  ";
+        } else if (q instanceof EnumerationQuestion) {
+            promptPrefix = "[SELECT ALL MATCHING RUNES]  ";
+        } else if (q instanceof MultipleChoiceQuestion) {
+            promptPrefix = "[CHOOSE ONE DECREE]  ";
+        } else {
+            promptPrefix = "[CHOOSE THE VALID DOCTRINE]  ";
+        }
+        questionTextLabel.setText(promptPrefix + q.getQuestionText());
+
+        refreshHintAndBoons();
+        populateClickableOptions(q);
+    }
+
+    private void refreshHintAndBoons() {
+        String activeHint = battle.getHint();
+        if (activeHint != null && !activeHint.isBlank()) {
+            hintBannerLabel.setText("HINT: " + activeHint);
+        } else {
+            hintBannerLabel.setText("");
+        }
+    }
+
+    private void populateClickableOptions(Question q) {}
     @Override
     public void render(float delta) {
         ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
