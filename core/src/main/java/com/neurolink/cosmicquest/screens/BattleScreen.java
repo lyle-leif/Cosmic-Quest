@@ -158,6 +158,8 @@ public class BattleScreen extends ScreenAdapter {
 
         this.displayedHeroHp = getActiveHeroHp();
         this.displayedBossHp = battle.getEntity().getHp();
+
+        buildDialogueUi();
     }
 
     @Override
@@ -205,6 +207,79 @@ public class BattleScreen extends ScreenAdapter {
     private int getActiveHeroMaxHp() {
         Player p = getActivePlayer();
         return p != null ? p.getMaxHp() : 100;
+    }
+
+    private void buildDialogueUi() {
+        Skin skin = assets.getSkin();
+
+        Table screenRoot = new Table();
+        screenRoot.setFillParent(true);
+        stage.addActor(screenRoot);
+
+        // Top Bar (Retreat / Audio toggles)
+        Table topBar = new Table();
+        topBar.pad(10f, 18f, 0f, 18f);
+
+        TextButton retreatBtn = new TextButton("RETREAT TO PANTHEON", skin, "utility");
+        retreatBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                game.setScreen(new MainMenuScreen(game));
+            }
+        });
+        topBar.add(retreatBtn).width(210f).height(34f).left();
+        topBar.add().expandX();
+
+        final TextButton muteBtn = new TextButton(CosmicAudio.isMuted() ? "AUDIO: MUTED" : "AUDIO: ON", skin, "utility");
+        muteBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.toggleMute();
+                muteBtn.setText(CosmicAudio.isMuted() ? "AUDIO: MUTED" : "AUDIO: ON");
+                CosmicAudio.playClick();
+            }
+        });
+        topBar.add(muteBtn).width(140f).height(34f).right();
+
+        screenRoot.add(topBar).growX().top().row();
+        screenRoot.add().expandY().row();
+
+        // Bottom Ornate Hades Dialogue & Question Container
+        dialogueRoot = new Table();
+        dialogueRoot.setBackground(skin.getDrawable("panel-dialogue"));
+        dialogueRoot.pad(14f, 26f, 14f, 26f);
+
+        // Row 1: Speaker Nameplate + Active Pilot Turn Badge
+        Table headerRow = new Table();
+        speakerTitleLabel = new Label("", skin, "gold");
+        headerRow.add(speakerTitleLabel).left().padRight(14f);
+
+        turnBadgeLabel = new Label("", skin, "small");
+        turnBadgeLabel.setColor(CosmicTheme.ASTRAL_CYAN);
+        headerRow.add(turnBadgeLabel).left().expandX();
+        dialogueRoot.add(headerRow).width(1148f).padBottom(6f).row();
+
+        // Row 2: Boss Hades Dialogue Quote + Question Prompt (Explicitly constrained to 1148f so text wraps cleanly!)
+        bossFlavorLabel = new Label("", skin, "muted");
+        bossFlavorLabel.setWrap(true);
+        dialogueRoot.add(bossFlavorLabel).width(1148f).left().padBottom(4f).row();
+
+        questionTextLabel = new Label("", skin, "medium");
+        questionTextLabel.setWrap(true);
+        questionTextLabel.setColor(CosmicTheme.TEXT_WARM);
+        dialogueRoot.add(questionTextLabel).width(1148f).left().padBottom(4f).row();
+
+        hintBannerLabel = new Label("", skin, "small");
+        hintBannerLabel.setColor(CosmicTheme.EMERALD_HEAL);
+        hintBannerLabel.setWrap(true);
+        dialogueRoot.add(hintBannerLabel).width(1148f).left().padBottom(6f).row();
+
+        // Row 3: Interactive Clickable Boon Answer Cards / Rune Chips
+        optionsTable = new Table();
+        dialogueRoot.add(optionsTable).width(1148f).height(142f);
+
+        screenRoot.add(dialogueRoot).width(1204f).height(328f).bottom().padBottom(12f);
     }
 
     @Override
