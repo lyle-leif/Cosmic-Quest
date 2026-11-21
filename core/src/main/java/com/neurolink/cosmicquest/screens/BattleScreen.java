@@ -935,47 +935,53 @@ public class BattleScreen extends ScreenAdapter {
         batch.setColor(Color.WHITE);
         batch.end();
 
-        shapes.end();
-            shapes.rect(s.x - s.size * 0.5f, s.y - s.size * 0.5f, s.size, s.size);
-        }
-        shapes.end();
+        // Draw Combat Projectiles, Beams, and Particle Sparks ON TOP of Character Sprites
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
 
-        // If Cadet has active Shield turns, draw glowing Aegis bubble around the pixel Cadet
-        Player activePlayer = getActivePlayer();
-        if (activePlayer != null && activePlayer.getShieldTurns() > 0) {
-            Gdx.gl.glEnable(GL20.GL_BLEND);
-            shapes.begin(ShapeRenderer.ShapeType.Line);
-            shapes.setColor(CosmicTheme.ASTRAL_CYAN);
-            shapes.circle(hx + 86f, hy + 86f, 96f + MathUtils.sin(animTime * 6f) * 4f);
-            shapes.end();
-        }
+        // Player Attack Effect (Sword Slash / Gun Plasma Volley / Spear Lance Thrust)
+        if (slashProgress >= 0f) {
+            float sx = bx + 95f;
+            float sy = by + 115f;
+            // Exact pixel coordinate of the Star-Gun muzzle in hero_cadet_gunner_attack.png (pixel 84,33 on 116x100 -> +149f, +123.3f on 206x184)
+            float muzzleX = hx + 149f;
+            float muzzleY = hy + 123.3f;
 
-        // Draw Floating Combat Callout Numbers
-        batch.begin();
-        for (FloatingText ft : floatingTexts) {
-            float alpha = MathUtils.clamp(ft.life / ft.maxLife, 0f, 1f);
-            if (ft.large) {
-                assets.fontLarge.setColor(ft.color.r, ft.color.g, ft.color.b, alpha);
-                assets.fontLarge.draw(batch, ft.text, ft.x, ft.y);
+            if (heroIdx == 1) {
+                // Star-Gun: Muzzle glow + Emerald-Cyan Rail Beam + 3 Traveling Plasma Rounds aligned straight from the gun barrel!
+                shapes.setColor(0.85f, 1f, 0.95f, 0.95f * (1f - slashProgress * 0.4f));
+                shapes.circle(muzzleX, muzzleY, 10f);
+                shapes.setColor(0.18f, 0.98f, 0.65f, 0.90f * (1f - slashProgress * 0.5f));
+                shapes.rectLine(muzzleX, muzzleY, sx, sy, 10f);
+                shapes.setColor(0.85f, 1f, 0.95f, 1f - slashProgress * 0.5f);
+                shapes.rectLine(muzzleX, muzzleY, sx, sy, 4f);
+                for (int b = 0; b < 3; b++) {
+                    float bt = MathUtils.clamp((slashProgress * 1.45f) - b * 0.20f, 0f, 1f);
+                    float px = MathUtils.lerp(muzzleX, sx, bt);
+                    float py = MathUtils.lerp(muzzleY, sy, bt);
+                    shapes.setColor(0.20f, 1f, 0.70f, 1f);
+                    shapes.circle(px, py, 11f);
+                    shapes.setColor(0.90f, 1f, 0.96f, 1f);
+                    shapes.circle(px, py, 5.5f);
+                }
+                shapes.setColor(0.25f, 1f, 0.72f, 1f - slashProgress);
+                shapes.circle(sx, sy, 42f + slashProgress * 68f);
+            } else if (heroIdx == 2) {
+                // Astral Spear: Violet-Gold Piercing Lance Thrust aligned with spearhead (hx + 178f, hy + 98f)
+                float spearTipX = hx + 178f;
+                float spearTipY = hy + 98f;
+                shapes.setColor(0.86f, 0.36f, 1f, 0.92f * (1f - slashProgress * 0.6f));
+                shapes.rectLine(spearTipX - 35f, spearTipY, sx + 45f, sy, 15f);
+                shapes.setColor(CosmicTheme.GOLD_BRIGHT.r, CosmicTheme.GOLD_BRIGHT.g, CosmicTheme.GOLD_BRIGHT.b, 1f - slashProgress);
+                shapes.circle(sx, sy, 55f + slashProgress * 85f);
             } else {
-                assets.fontMedium.setColor(ft.color.r, ft.color.g, ft.color.b, alpha);
-                assets.fontMedium.draw(batch, ft.text, ft.x, ft.y);
-            }
+                // Stygian Sword: Cyan-Gold Crescent Slash aligned with sword blade (hx + 160f, hy + 96f)
+                float radius = 55f + slashProgress * 85f;
+                shapes.setColor(CosmicTheme.ASTRAL_CYAN.r, CosmicTheme.ASTRAL_CYAN.g, CosmicTheme.ASTRAL_CYAN.b, 1f - slashProgress);
+                shapes.circle(sx, sy, radius);
+                shapes.setColor(CosmicTheme.GOLD_BRIGHT.r, CosmicTheme.GOLD_BRIGHT.g, CosmicTheme.GOLD_BRIGHT.b, 1f - slashProgress * 0.8f);
+                shapes.rectLine(hx + 145f, hy + 96f, sx + 40f, sy + 30f, 10f);
         }
-        assets.fontLarge.setColor(Color.WHITE);
-        assets.fontMedium.setColor(Color.WHITE);
-        batch.end();
-
-        // Draw Pokemon-style Top HUD Status Cards (Cadet HP Card on Left, Boss HP Card on Right, Timer in Center)
-        renderTopBattleHud(batch, shapes);
-    }
-
-    private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {
-        Entity boss = battle.getEntity();
-        Player current = getActivePlayer();
-        int heroHp = getActiveHeroHp();
-        int heroMaxHp = getActiveHeroMaxHp();
-        float heroRatio = MathUtils.clamp(displayedHeroHp / Math.max(1f, heroMaxHp), 0f, 1f);
         shapes.end();
     }
     private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {}
