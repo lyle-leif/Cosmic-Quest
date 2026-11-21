@@ -1079,7 +1079,137 @@ public class BattleScreen extends ScreenAdapter {
         // Draw Pokemon-style Top HUD Status Cards (Cadet HP Card on Left, Boss HP Card on Right, Timer in Center)
         renderTopBattleHud(batch, shapes);
     }
-    private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {}
+
+    private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {
+        Entity boss = battle.getEntity();
+        Player current = getActivePlayer();
+        int heroHp = getActiveHeroHp();
+        int heroMaxHp = getActiveHeroMaxHp();
+        float heroRatio = MathUtils.clamp(displayedHeroHp / Math.max(1f, heroMaxHp), 0f, 1f);
+        float bossRatio = MathUtils.clamp(displayedBossHp / Math.max(1f, boss.getMaxHp()), 0f, 1f);
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+
+        // Left HUD Box: Cadet Status (x: 24, y: 585, w: 410, h: 78)
+        shapes.setColor(0.06f, 0.05f, 0.12f, 0.92f);
+        shapes.rect(24f, 585f, 410f, 78f);
+        shapes.setColor(CosmicTheme.GOLD_TRIM);
+        shapes.rect(24f, 660f, 410f, 3f);
+        shapes.rect(24f, 585f, 410f, 2f);
+
+        // Cadet HP Bar Track & Fill
+        shapes.setColor(0.16f, 0.14f, 0.24f, 1f);
+        shapes.rect(40f, 600f, 378f, 18f);
+        Color hpCol = heroRatio > 0.5f ? CosmicTheme.EMERALD_HEAL
+                : (heroRatio > 0.25f ? CosmicTheme.GOLD_BRIGHT : CosmicTheme.ZAGREUS_CRIMSON);
+        shapes.setColor(hpCol);
+        shapes.rect(40f, 600f, 378f * heroRatio, 18f);
+
+        // Center Timer Pill (x: 465, y: 585, w: 350, h: 78)
+        float timerRatio = MathUtils.clamp(remainingTime / Math.max(1f, maxTurnTime), 0f, 1f);
+        shapes.setColor(0.06f, 0.05f, 0.12f, 0.92f);
+        shapes.rect(465f, 585f, 350f, 78f);
+        shapes.setColor(CosmicTheme.GOLD_TRIM);
+        shapes.rect(465f, 660f, 350f, 3f);
+        shapes.setColor(0.16f, 0.14f, 0.24f, 1f);
+        shapes.rect(483f, 600f, 314f, 16f);
+        Color timerCol = timerRatio > 0.4f ? CosmicTheme.ASTRAL_CYAN
+                : (timerRatio > 0.2f ? CosmicTheme.WARNING_ORANGE : CosmicTheme.ZAGREUS_CRIMSON);
+        shapes.setColor(timerCol);
+        shapes.rect(483f, 600f, 314f * timerRatio, 16f);
+
+        // Right HUD Box: Boss Status (x: 846, y: 585, w: 410, h: 78)
+        shapes.setColor(0.06f, 0.05f, 0.12f, 0.92f);
+        shapes.rect(846f, 585f, 410f, 78f);
+        shapes.setColor(CosmicTheme.ZAGREUS_CRIMSON);
+        shapes.rect(846f, 660f, 410f, 3f);
+        shapes.rect(846f, 585f, 410f, 2f);
+
+        // Boss HP Bar Track & Fill
+        shapes.setColor(0.16f, 0.14f, 0.24f, 1f);
+        shapes.rect(862f, 600f, 378f, 18f);
+        shapes.setColor(CosmicTheme.ZAGREUS_CRIMSON);
+        shapes.rect(862f, 600f, 378f * bossRatio, 18f);
+
+        shapes.end();
+
+        // HUD Labels (Faithful to ConsoleRenderer.showHud & ConsoleRenderer.showTeam)
+        batch.begin();
+        String heroName = current != null
+                ? current.getName().toUpperCase() + (squadMode ? "  (SQUAD TURN)" : "")
+                : "PILOT";
+        assets.fontBody.setColor(CosmicTheme.GOLD_BRIGHT);
+        assets.fontBody.draw(batch, heroName, 40f, 650f);
+
+        int streak = current != null ? current.getStreak() : 0;
+        int bonusPct = com.neurolink.cosmicquest.logic.DamageCalculator.streakBonusPercent(streak);
+        String shieldBadge = (current != null && current.getShieldTurns() > 0) ? "  Shield ON" : "";
+        assets.fontSmall.setColor(CosmicTheme.TEXT_PARCMENT);
+        assets.fontSmall.draw(batch,
+                "Hull " + heroHp + "/" + heroMaxHp
+                + "   |   Streak " + streak + " (+" + bonusPct + "% dmg)" + shieldBadge,
+                40f, 632f);
+
+        // If Squad Battle, render the Squad Roster strip (ConsoleRenderer.showTeam) right below the Left HUD box!
+        if (battle instanceof SquadBossBattle squad) {
+            List<Player> members = squad.getTeam().getPlayers();
+            StringBuilder roster = new StringBuilder("SQUAD:  ");
+            for (int i = 0; i < members.size(); i++) {
+                Player m = members.get(i);
+                if (i > 0) {
+                    roster.append("   |   ");
+                }
+                roster.append(m == current ? "> " : "  ")
+                      .append(m.getName())
+                      .append(" [").append(m.getHp()).append("/").append(m.getMaxHp()).append("]")
+                      .append(m.isDefeated() ? " DOWN" : "");
+            }
+            assets.fontSmall.setColor(CosmicTheme.ASTRAL_CYAN);
+            assets.fontSmall.draw(batch, roster.toString(), 28f, 576f);
+        }
+
+        // Center Mode / Timer readout
+        String modeBanner;
+        if (phase == Phase.PRE_FIGHT_INTRO) {
+            modeBanner = "ENCOUNTER INITIATED";
+        } else if (phase == Phase.HADES_DIALOGUE) {
+            modeBanner = String.format("TRIAL TIMER: %.1fs", remainingTime);
+        } else {
+            modeBanner = "2D PIXEL COMBAT PHASE!";
+        }
+        assets.fontBody.setColor(phase != Phase.PIXEL_CUTSCENE ? CosmicTheme.ASTRAL_CYAN : CosmicTheme.GOLD_BRIGHT);
+        assets.fontBody.draw(batch, modeBanner, 483f, 648f);
+
+        assets.fontSmall.setColor(CosmicTheme.TEXT_MUTED);
+        String subBanner = phase == Phase.PRE_FIGHT_INTRO
+                ? "Click below to draw your blade!"
+                : (phase == Phase.HADES_DIALOGUE ? "Click an answer below to strike!" : "Executing turn action...");
+        assets.fontSmall.draw(batch, subBanner, 483f, 630f);
+
+        // Boss HUD Text (Use short special move name so it fits cleanly inside the 410px HUD box!)
+        String shortSpecial = boss.getSpecialMove();
+        int colonIdx = shortSpecial.indexOf(':');
+        if (colonIdx > 0) {
+            shortSpecial = shortSpecial.substring(0, colonIdx);
+        }
+        assets.fontBody.setColor(CosmicTheme.BLOOD_RED);
+        assets.fontBody.draw(batch, boss.getName().toUpperCase() + "  [LV." + boss.getLevel() + "]", 862f, 650f);
+        assets.fontSmall.setColor(CosmicTheme.TEXT_PARCMENT);
+        assets.fontSmall.draw(batch,
+                "BOSS HP: " + boss.getHp() + " / " + boss.getMaxHp()
+                + "   |   " + shortSpecial,
+                862f, 632f);
+
+        assets.fontBody.setColor(Color.WHITE);
+        assets.fontSmall.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
+     * Renders the high-detail Hades graphic-novel character bust portraits on the left & right
+     * when in the HADES_DIALOGUE phase, sliding smoothly out when switching to the 2D Pixel Cutscene!
+     */
     private void renderHadesDialogueOverlay(SpriteBatch batch, ShapeRenderer shapes) {}
 
     public void resize(int width, int height) {
