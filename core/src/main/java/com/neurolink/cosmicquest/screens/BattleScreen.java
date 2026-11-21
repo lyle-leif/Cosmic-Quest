@@ -485,6 +485,48 @@ public class BattleScreen extends ScreenAdapter {
                 optionsTable.add(card).width(564f).height(62f).pad(4f);
                 if (i % 2 == 1) {
                     optionsTable.row();
+                }
+            }
+        } else if (q instanceof EnumerationQuestion eq) {
+            // Build clickable Rune Toggle Chips + [WEAVE & STRIKE] submit button!
+            List<String> chips = buildEnumerationChips(eq.getItems());
+            Table chipsGrid = new Table();
+            int cols = 4;
+            for (int i = 0; i < chips.size(); i++) {
+                final String itemText = chips.get(i);
+                final TextButton chipBtn = new TextButton(itemText, skin, "boon");
+                chipBtn.pad(4f, 8f, 4f, 8f);
+                chipBtn.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        CosmicAudio.playClick();
+                        if (selectedEnumItems.contains(itemText)) {
+                            selectedEnumItems.remove(itemText);
+                            chipBtn.setChecked(false);
+                        } else {
+                            selectedEnumItems.add(itemText);
+                            chipBtn.setChecked(true);
+                        }
+                    }
+                });
+                chipsGrid.add(chipBtn).width(228f).height(42f).pad(3f);
+                if ((i + 1) % cols == 0) {
+                    chipsGrid.row();
+                }
+            }
+            optionsTable.add(chipsGrid).width(950f).padRight(10f);
+
+            TextButton strikeBtn = new TextButton("WEAVE &\nSTRIKE!", skin);
+            strikeBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    if (phase == Phase.HADES_DIALOGUE) {
+                        String joined = String.join(", ", selectedEnumItems);
+                        submitPlayerAnswer(joined);
+                    }
+                }
+            });
+            optionsTable.add(strikeBtn).width(175f).height(90f).pad(3f);
         }
     }
 
@@ -544,6 +586,36 @@ public class BattleScreen extends ScreenAdapter {
         List<String> list = new ArrayList<>(pool);
         Collections.shuffle(list, uiRandom);
         return list;
+    }
+
+    private List<String> buildEnumerationChips(List<String> requiredItems) {
+        Set<String> pool = new LinkedHashSet<>(requiredItems);
+        int targetCount = Math.max(8, requiredItems.size() + 3);
+
+        for (List<String> list : game.getLessonData().getEnumerations().values()) {
+            for (String item : list) {
+                if (pool.size() >= targetCount) {
+                    break;
+                }
+                pool.add(item);
+            }
+        }
+        for (Term t : game.getLessonData().getTerms()) {
+            if (pool.size() >= targetCount) {
+                break;
+            }
+            pool.add(t.getTerm());
+        }
+        List<String> result = new ArrayList<>(pool);
+        Collections.shuffle(result, uiRandom);
+        return result;
+    }
+
+    private String truncateOption(String text, int maxLen) {
+        if (text == null || text.length() <= maxLen) {
+            return text;
+        }
+        return text.substring(0, maxLen - 3) + "...";
     }
 
     private void submitPlayerAnswer(String answer) {}
