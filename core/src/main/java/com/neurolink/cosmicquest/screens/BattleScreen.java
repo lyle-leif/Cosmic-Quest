@@ -676,20 +676,6 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void addFloatingText(String text, float x, float y, Color color, boolean large) {
-        FloatingText ft = new FloatingText();
-        ft.text = text;
-        ft.x = x;
-        ft.y = y;
-        ft.vy = large ? 58f : 42f;
-        ft.maxLife = 1.25f;
-        ft.life = ft.maxLife;
-        ft.color = color;
-        ft.large = large;
-        floatingTexts.add(ft);
-    }
-
-    @Override
     public void render(float delta) {
         animTime += delta;
         updateBattleLogic(delta);
@@ -981,8 +967,25 @@ public class BattleScreen extends ScreenAdapter {
                 shapes.circle(sx, sy, radius);
                 shapes.setColor(CosmicTheme.GOLD_BRIGHT.r, CosmicTheme.GOLD_BRIGHT.g, CosmicTheme.GOLD_BRIGHT.b, 1f - slashProgress * 0.8f);
                 shapes.rectLine(hx + 145f, hy + 96f, sx + 40f, sy + 30f, 10f);
+            }
         }
-        shapes.end();
+
+        // Boss Special Attack Shockwave / Beam Effect
+        if (bossBeamProgress >= 0f) {
+            float bossMuzzleX = bx + 45f;
+            float bossMuzzleY = by + 95f;
+            float heroHitX = hx + 85f;
+            float heroHitY = hy + 92f;
+            shapes.setColor(bossAccent.r, bossAccent.g, bossAccent.b, 0.85f * (1f - bossBeamProgress * 0.6f));
+            shapes.rectLine(bossMuzzleX, bossMuzzleY, heroHitX, heroHitY, 16f);
+            shapes.setColor(1f, 0.9f, 0.95f, 0.9f * (1f - bossBeamProgress));
+            shapes.circle(heroHitX, heroHitY, 45f + bossBeamProgress * 70f);
+        }
+
+        // Particle Sparks
+        for (Spark s : sparks) {
+            float alpha = MathUtils.clamp(s.life / s.maxLife, 0f, 1f);
+            shapes.setColor(s.color.r, s.color.g, s.color.b, alpha);
     }
     private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {}
     private void renderHadesDialogueOverlay(SpriteBatch batch, ShapeRenderer shapes) {}
