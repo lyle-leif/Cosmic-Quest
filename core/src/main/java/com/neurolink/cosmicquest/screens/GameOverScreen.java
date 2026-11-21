@@ -214,8 +214,12 @@ public class GameOverScreen extends ScreenAdapter {
         stage.act(delta);
         stage.draw();
 
+        Entity boss = battle.getEntity();
+        float bob = MathUtils.sin(animTime * 3.0f) * 4f;
         batch.begin();
-        batch.draw(assets.getBossPortrait(battle.getEntity()), 58f, 200f, 240f, 240f);
+        // Anchor the boss bust portrait flush on the bottom border of the card (y = 27f) so it never floats cut off
+        batch.draw(assets.getBossPortrait(boss), 46f, 27f, 320f, 320f);
+        batch.draw(assets.getBossPixelSprite(boss), 232f, 44f - bob, 136f, 136f);
         batch.end();
     }
 
