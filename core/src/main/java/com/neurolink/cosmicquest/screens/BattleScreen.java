@@ -378,7 +378,70 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void populateClickableOptions(Question q) {}
+    private void activatePowerUpSlot(int slot) {
+        Player current = getActivePlayer();
+        if (current == null) {
+            return;
+        }
+        try {
+            PowerUp used = battle.usePowerUp(current, slot);
+            CosmicAudio.playBoonActivate();
+            displayedHeroHp = getActiveHeroHp();
+            hintBannerLabel.setColor(CosmicTheme.GOLD_BRIGHT);
+            hintBannerLabel.setText("BOON INVOKED: " + used.getName().toUpperCase() + " -- " + used.getDescription()
+                    + (battle.getHint() != null ? "  |  " + battle.getHint() : ""));
+            refreshHintAndBoons();
+            // Rebuild options in case Hint hid two Multiple Choice options
+            if (battle.getCurrentQuestion() instanceof MultipleChoiceQuestion) {
+                populateClickableOptions(battle.getCurrentQuestion());
+            }
+        } catch (Exception ex) {
+            hintBannerLabel.setColor(CosmicTheme.BLOOD_RED);
+            hintBannerLabel.setText(ex.getMessage());
+        }
+    }
+
+    /**
+     * Populates 100% clickable Hades Boon Answer Cards inside the dialogue box
+     * for whichever question type the current Guardian Boss asks.
+     */
+    private void populateClickableOptions(Question q) {
+        optionsTable.clearChildren();
+        Skin skin = assets.getSkin();
+
+        if (q instanceof MultipleChoiceQuestion mc) {
+            List<String> opts = mc.getOptions();
+            Set<Integer> hidden = battle.getHiddenOptions();
+            char[] letters = {'A', 'B', 'C', 'D'};
+
+            for (int i = 0; i < opts.size(); i++) {
+                final String letterChoice = String.valueOf(letters[i]);
+                String labelText = "[" + letters[i] + "]  " + truncateOption(opts.get(i), 78);
+                TextButton card = new TextButton(labelText, skin, "boon");
+                card.getLabel().setAlignment(Align.left);
+                card.getLabel().setWrap(true);
+                card.pad(6f, 14f, 6f, 14f);
+
+                if (hidden.contains(i)) {
+                    card.setText("[" + letters[i] + "]  (Eliminated by Oracle Hint)");
+                    card.setDisabled(true);
+                } else {
+                    card.addListener(new ClickListener() {
+                        @Override
+                        public void clicked(InputEvent event, float x, float y) {
+                            if (phase == Phase.HADES_DIALOGUE) {
+                                submitPlayerAnswer(letterChoice);
+                            }
+                        }
+                    });
+                }
+                optionsTable.add(card).width(564f).height(62f).pad(4f);
+                if (i % 2 == 1) {
+                }
+            }
+        }
+    }
+    private void submitPlayerAnswer(String answer) {}
     @Override
     public void render(float delta) {
         ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
