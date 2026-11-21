@@ -676,6 +676,20 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    private void addFloatingText(String text, float x, float y, Color color, boolean large) {
+        FloatingText ft = new FloatingText();
+        ft.text = text;
+        ft.x = x;
+        ft.y = y;
+        ft.vy = large ? 58f : 42f;
+        ft.maxLife = 1.25f;
+        ft.life = ft.maxLife;
+        ft.color = color;
+        ft.large = large;
+        floatingTexts.add(ft);
+    }
+
+    @Override
     public void render(float delta) {
         animTime += delta;
         updateBattleLogic(delta);
@@ -770,7 +784,53 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void triggerCutsceneImpactEvents() {}
+    private void triggerCutsceneImpactEvents() {
+        if (lastTurnResult == null) {
+            return;
+        }
+        Entity boss = battle.getEntity();
+        boolean hasPlayerAttack = lastTurnResult.getDamageDealt() > 0;
+        boolean hasBossAttack = !lastTurnResult.isCorrect();
+
+        // Player Strike Impact at t = 0.42s
+        if (hasPlayerAttack && !playerStrikeSoundPlayed && cutsceneTimer >= 0.42f) {
+            playerStrikeSoundPlayed = true;
+            CosmicAudio.playPlayerSlash();
+            screenShakeTime = 0.28f;
+            screenShakeIntensity = 9f;
+
+            spawnSparkBurst(BOSS_BASE_X + 95f, BOSS_BASE_Y + 95f,
+                    CosmicTheme.ASTRAL_CYAN, CosmicTheme.GOLD_BRIGHT, 36);
+            addFloatingText("-" + lastTurnResult.getDamageDealt() + " DMG!",
+                    BOSS_BASE_X + 35f, BOSS_BASE_Y + 185f, CosmicTheme.GOLD_BRIGHT, true);
+        }
+
+        // Boss Strike Impact (at t = 0.45s on pure miss, or t = 1.25s after partial enumeration hit)
+        float bossImpactTime = hasPlayerAttack ? 1.25f : 0.45f;
+        if (hasBossAttack && !bossStrikeSoundPlayed && cutsceneTimer >= bossImpactTime) {
+            bossStrikeSoundPlayed = true;
+            CosmicAudio.playBossHit();
+            screenShakeTime = 0.36f;
+            screenShakeIntensity = 13f;
+
+            Color bossCol = assets.getBossAccentColor(boss);
+            spawnSparkBurst(HERO_BASE_X + 80f, HERO_BASE_Y + 80f,
+                    bossCol, CosmicTheme.ZAGREUS_CRIMSON, 38);
+
+            if (lastTurnResult.getDamageTaken() > 0) {
+                String tag = lastTurnResult.isTimedOut() ? "TIME OUT! -" : "-";
+                addFloatingText(tag + lastTurnResult.getDamageTaken() + " HULL!",
+                        HERO_BASE_X + 10f, HERO_BASE_Y + 180f, CosmicTheme.BLOOD_RED, true);
+            } else {
+                addFloatingText("AEGIS SHIELD BLOCKED!",
+                        HERO_BASE_X - 10f, HERO_BASE_Y + 180f, CosmicTheme.ASTRAL_CYAN, true);
+            }
+
+            addFloatingText(boss.getSpecialMove().toUpperCase() + "!",
+                    BOSS_BASE_X - 10f, BOSS_BASE_Y + 205f, bossCol, false);
+        }
+    }
+
     private void finishCutsceneAndContinue() {
         if (!battle.isOver()) { battle.nextTurn(); prepareCurrentTurnQuestion(); }
     }
@@ -986,6 +1046,38 @@ public class BattleScreen extends ScreenAdapter {
         for (Spark s : sparks) {
             float alpha = MathUtils.clamp(s.life / s.maxLife, 0f, 1f);
             shapes.setColor(s.color.r, s.color.g, s.color.b, alpha);
+            shapes.rect(s.x - s.size * 0.5f, s.y - s.size * 0.5f, s.size, s.size);
+        }
+        shapes.end();
+
+        // If Cadet has active Shield turns, draw glowing Aegis bubble around the pixel Cadet
+        Player activePlayer = getActivePlayer();
+        if (activePlayer != null && activePlayer.getShieldTurns() > 0) {
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            shapes.begin(ShapeRenderer.ShapeType.Line);
+            shapes.setColor(CosmicTheme.ASTRAL_CYAN);
+            shapes.circle(hx + 86f, hy + 86f, 96f + MathUtils.sin(animTime * 6f) * 4f);
+            shapes.end();
+        }
+
+        // Draw Floating Combat Callout Numbers
+        batch.begin();
+        for (FloatingText ft : floatingTexts) {
+            float alpha = MathUtils.clamp(ft.life / ft.maxLife, 0f, 1f);
+            if (ft.large) {
+                assets.fontLarge.setColor(ft.color.r, ft.color.g, ft.color.b, alpha);
+                assets.fontLarge.draw(batch, ft.text, ft.x, ft.y);
+            } else {
+                assets.fontMedium.setColor(ft.color.r, ft.color.g, ft.color.b, alpha);
+                assets.fontMedium.draw(batch, ft.text, ft.x, ft.y);
+            }
+        }
+        assets.fontLarge.setColor(Color.WHITE);
+        assets.fontMedium.setColor(Color.WHITE);
+        batch.end();
+
+        // Draw Pokemon-style Top HUD Status Cards (Cadet HP Card on Left, Boss HP Card on Right, Timer in Center)
+        renderTopBattleHud(batch, shapes);
     }
     private void renderTopBattleHud(SpriteBatch batch, ShapeRenderer shapes) {}
     private void renderHadesDialogueOverlay(SpriteBatch batch, ShapeRenderer shapes) {}
