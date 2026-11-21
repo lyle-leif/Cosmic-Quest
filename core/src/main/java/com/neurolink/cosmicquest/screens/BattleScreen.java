@@ -618,7 +618,47 @@ public class BattleScreen extends ScreenAdapter {
         return text.substring(0, maxLen - 3) + "...";
     }
 
-    private void submitPlayerAnswer(String answer) {}
+    private void submitPlayerAnswer(String answer) {
+        if (phase != Phase.HADES_DIALOGUE) {
+            return;
+        }
+        this.actingHeroIndex = getDialogueHeroIndex();
+        TurnResult result = battle.submitAnswer(answer);
+        beginPixelCombatCutscene(result);
+    }
+
+    private void triggerTimeout() {
+        if (phase != Phase.HADES_DIALOGUE) {
+            return;
+        }
+        this.actingHeroIndex = getDialogueHeroIndex();
+        TurnResult result = battle.submitTimeout();
+        beginPixelCombatCutscene(result);
+    }
+
+    /**
+     * Switches from the Detailed Hades Dialogue View to the 2D Pixel Battle Stage
+     * and orchestrates the Cadet and Boss pixel attack animations!
+     */
+    private void beginPixelCombatCutscene(TurnResult result) {
+        this.lastTurnResult = result;
+        this.phase = Phase.PIXEL_CUTSCENE;
+        this.cutsceneTimer = 0f;
+        this.playerStrikeSoundPlayed = false;
+        this.bossStrikeSoundPlayed = false;
+
+        // If partial enumeration dealt damage AND missed, play both strikes sequentially
+        boolean bothAct = result.getDamageDealt() > 0 && !result.isCorrect();
+        this.cutsceneDuration = bothAct ? 2.35f : 1.70f;
+
+        dialogueRoot.setTouchable(Touchable.disabled);
+
+        // Remember if Void Brute used Gravity Slam on a miss so next turn's timer shrinks
+        if (!result.isCorrect() && battle.getEntity() instanceof VoidBrute) {
+            gravitySlamActiveNextTurn = true;
+        }
+    }
+
     @Override
     public void render(float delta) {
         ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
