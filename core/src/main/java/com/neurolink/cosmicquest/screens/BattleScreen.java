@@ -832,9 +832,31 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void finishCutsceneAndContinue() {
-        if (!battle.isOver()) { battle.nextTurn(); prepareCurrentTurnQuestion(); }
+        if (battle.isOver()) {
+            int stars = 0;
+            if (battle instanceof SoloBossBattle solo) {
+                stars = solo.getStars();
+            } else if (battle instanceof SquadBossBattle squad) {
+                stars = squad.getStars();
+            }
+            if (battle.getState() == BattleState.WON) {
+                game.addStars(stars);
+                CosmicAudio.playVictory();
+                game.setScreen(new VictoryScreen(game, battle, bossIndex, bossLevel, squadMode, stars));
+            } else {
+                CosmicAudio.playDefeat();
+                game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
+            }
+        } else {
+            battle.nextTurn();
+            prepareCurrentTurnQuestion();
+        }
     }
 
+    /**
+     * Renders the 2D Pixel Battle Stage (Pokemon-style arena platforms, 24-bit pixel sprites
+     * with lunge/recoil/slash animations, particle sparks, and top HUD status cards).
+     */
     private void render2DPixelBattleArena(SpriteBatch batch, ShapeRenderer shapes, float delta) {
         Entity boss = battle.getEntity();
         Texture backdrop = assets.getBossBackdrop(boss);
