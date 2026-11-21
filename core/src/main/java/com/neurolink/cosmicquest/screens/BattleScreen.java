@@ -659,11 +659,62 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    @Override
-    public void render(float delta) {
-        ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
+    private void spawnSparkBurst(float cx, float cy, Color mainColor, Color altColor, int count) {
+        for (int i = 0; i < count; i++) {
+            Spark s = new Spark();
+            float angle = MathUtils.random(0f, MathUtils.PI2);
+            float speed = MathUtils.random(70f, 340f);
+            s.x = cx + MathUtils.random(-18f, 18f);
+            s.y = cy + MathUtils.random(-18f, 18f);
+            s.vx = MathUtils.cos(angle) * speed;
+            s.vy = MathUtils.sin(angle) * speed;
+            s.size = MathUtils.random(3.5f, 8.5f);
+            s.maxLife = MathUtils.random(0.35f, 0.75f);
+            s.life = s.maxLife;
+            s.color = (i % 2 == 0) ? mainColor : altColor;
+            sparks.add(s);
+        }
     }
 
-    @Override public void resize(int width, int height) {}
-    @Override public void dispose() {}
+    private void addFloatingText(String text, float x, float y, Color color, boolean large) {
+        FloatingText ft = new FloatingText();
+        ft.text = text;
+        ft.x = x;
+        ft.y = y;
+        ft.vy = large ? 58f : 42f;
+        ft.maxLife = 1.25f;
+        ft.life = ft.maxLife;
+        ft.color = color;
+        ft.large = large;
+        floatingTexts.add(ft);
+    }
+
+    @Override
+    @Override
+    public void render(float delta) {
+        animTime += delta;
+        ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
+        stage.getViewport().apply();
+        SpriteBatch batch = game.getBatch();
+        ShapeRenderer shapes = game.getShapes();
+        batch.setProjectionMatrix(stage.getCamera().combined);
+        shapes.setProjectionMatrix(stage.getCamera().combined);
+        Entity boss = battle.getEntity();
+        batch.begin();
+        batch.draw(assets.getBossBackdrop(boss), 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+        batch.draw(assets.getCadetPixelSprite(getDisplayedHeroIndex(), false, false), HERO_BASE_X, HERO_BASE_Y, 206f, 184f);
+        batch.draw(assets.getBossPixelSprite(boss, false), BOSS_BASE_X, BOSS_BASE_Y, 210f, 200f);
+        batch.end();
+        stage.act(delta);
+        stage.draw();
+    }
+
+    public void resize(int width, int height) {
+        stage.getViewport().update(width, height, true);
+    }
+
+    @Override
+    public void dispose() {
+        stage.dispose();
+    }
 }
