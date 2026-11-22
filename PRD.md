@@ -159,6 +159,31 @@ Levels outside 1–3 are rejected. Level 3 aliens act as bosses.
 | AI generation inside the GUI | P2 |
  
 **Cut order if time runs short:** particles → Suit Locker → hazards → AI in the GUI.
+
+#### GUI built so far (first version, Nov 2026)
+
+| Screen | What it does |
+|---|---|
+| `MainMenuScreen` | Title menu; Solo setup (pilot, alien, level) and Squad setup (2 or 3 pilots) wizards; Load Lesson and How to Play pop-ups |
+| `PrologueScreen` | Story intro with dialogue box |
+| `CodexScreen` | Gallery of the pilots and the 4 aliens with portraits, sprites and their rules |
+| `BattleScreen` | Question phase (portraits, question, clickable answers, 30-second timer, power-up slots, hint) and attack phase (pixel arena, attack and hit animations, damage numbers, screen shake); Solo and Squad |
+| `VictoryScreen`, `GameOverScreen` | Stars, accuracy, damage, missed questions with answers; Retry or Menu |
+
+Support classes in `ui`: `CosmicAssets` (fonts, textures, Scene2D skin), `CosmicAudio` (generated retro sound effects), `CosmicTheme` (colours, 1280×720 layout constants). The battle rules still come only from `logic`, as in the console version (D10).
+
+Not built yet: Loading screen, Settings, Credits, music, parallax backgrounds, hazards, Suit Locker.
+
+#### Known GUI issues to fix before v0.2-gui-alpha
+
+| Issue | Fix |
+|---|---|
+| With AI keys set, the window freezes while the AI answers (up to the timeout per provider), because battles are started on the render thread. Breaks the performance rule in section 8. | Start the battle on a background thread, show a "Generating questions..." screen, then switch with `Gdx.app.postRunnable`. |
+| The art, file names, code names and texts copy Hades / Hades II (names such as `menu_hades_splash.png`, `ZAGREUS_CRIMSON`, the tagline "THERE IS NO ESCAPE", the pillar logo). | Rename to Cosmic Quest's own names, change the tagline and logo shape, keep only the general art style. |
+| No `CREDITS.md`; fonts are Palatino and Trebuchet baked into bitmaps (commercial fonts). | List every image's source and licence in `CREDITS.md`; switch to free fonts (for example Google Fonts). |
+| "Gravity Slam" cuts 5 seconds from the next timer after a Void Brute miss. This rule exists only in the GUI, and the real special move is Ground Slam (1.5× damage). | Remove it, or move it into `logic` so both versions match. |
+| If the lesson file is not found, the GUI quietly uses a lesson written into the code. | Show the "No file found" error, as the console does. |
+| No tests cover the screens. | Keep logic out of the screens; add a playtest checklist for Gate 3. |
  
 #### Environment hazards (P2)
  
@@ -207,9 +232,10 @@ core/src/main/java/com/neurolink/cosmicquest/
             PowerUp + 4 types, PowerUpInventory, hazards
             QuestionProvider, LocalProvider, AiQuestionProvider
   console/  ConsoleMain, ConsoleRenderer               (Weeks 1–2)
-  screens/  LibGDX screens and BattleController        (Weeks 3–5)
-  render/   AstronautActor, EnemyActor, backgrounds, effects
-  audio/    AudioManager
+  screens/  MainMenuScreen, PrologueScreen, CodexScreen, BattleScreen,
+            VictoryScreen, GameOverScreen              (Weeks 3–5)
+  ui/       CosmicAssets, CosmicAudio, CosmicTheme
+  CosmicQuestGame   LibGDX Game class: lesson, AI chain, screen switching
 ai/src/main/java/com/neurolink/cosmicquest/ai/   (separate Gradle module, D9)
             AiClient, AiChain, HttpAiClient, GeminiClient, OpenAiCompatibleClient,
             AiConfig, AiRequest, AiQuestion, AiQuestionKind, AiException, HttpTransport
@@ -278,8 +304,9 @@ Class diagram: `docs/uml/class-diagram.puml` (v2, matches the console code at th
 | A member falls behind | Uneven contribution | Review within 24 hours; "(part 1)" commits; reassign in the sheet when needed |
 | One person finishes 51 tasks alone (from S04) | Console late, GUI cut | Build Solo battle end to end before power-ups, Squad and AI (section 15) |
 | Known console bugs (input, math, battle loop) | Crashes, wrong damage, endless loops | Fixes are built into each task in section 15.2; each has a test |
+| GUI looks copied from another game (Hades) | Grade and demo risk | Own names, logo and tagline; sources in `CREDITS.md` (section 7.10) |
  
-## 14. Current status (Nov 11, 2026)
+## 14. Current status (Nov 22, 2026)
  
 | Session | Merged on `dev` |
 |---|---|
@@ -291,7 +318,8 @@ Class diagram: `docs/uml/class-diagram.puml` (v2, matches the console code at th
 | S06 | `BattleState`, `TurnResult`, abstract `BattleMode`; `SoloBossBattle`; power-ups and `PowerUpInventory` |
 | S07 | `MatchStats` and debrief; console main menu (`ConsoleMain`); `Team` and `SquadBossBattle` |
 | S08 | `ai` module with Gemini → Groq → local fallback (D9); UML v2 and `docs/CONSOLE_GUIDE.md`; console gate tests (whole games through `ConsoleMain`) |
-| Next | Release `dev` → `main` and tag `v0.1-console` (Gate 2), then S09: GUI foundation |
+| S09–S12 (in review) | First GUI: menu, prologue, codex, Solo and Squad battle screens, Victory and Game Over, art and sound (section 7.10) |
+| Next | Release `v0.1-console` (Gate 2); fix the known GUI issues in 7.10; Loading, Settings and Credits screens (Gate 3) |
 
 ## 15. Console build plan (S04–S08)
 
@@ -310,6 +338,7 @@ This plan replaces the S04–S08 task order for solo work. Every task keeps its 
 | D7 | Build order | Solo battle playable end to end first; power-ups, Squad and AI after. |
 | D8 | Streak timing | On a correct answer the battle calls `increaseStreak()` first, then passes the new streak to `DamageCalculator`. The first correct answer is streak 1 and deals +10% (difficulty 1: 22 damage). |
 | D9 | AI module | The AI providers live in a separate Gradle module, `ai`, that knows nothing about the game and returns plain `AiQuestion` data. `core` depends on `ai`, never the reverse, so there is no cycle. `AiQuestionProvider` in `core` checks each question (for example, exactly 4 options, the answer not given away in the clue) and drops the bad ones. Tests use a fake `HttpTransport`; no test calls a real API. |
+| D10 | GUI answers | In the GUI every answer is clicked: Multiple choice, Identification and Reasoning show 4 cards (the right one plus 3 wrong ones from the lesson), and Enumeration shows item chips to toggle. The console keeps typed answers. Every card is still checked by the question's own `checkAnswer`, and a wrong Reasoning card is only shown if `checkAnswer` rejects it (similar definitions such as Getter and Setter share enough keywords to pass). |
 
 ### 15.2 Tasks
 
