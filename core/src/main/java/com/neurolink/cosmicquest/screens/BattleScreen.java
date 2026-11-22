@@ -465,7 +465,7 @@ public class BattleScreen extends ScreenAdapter {
             }
         } else if (q instanceof ReasoningQuestion rq) {
             // Build 4 clickable Doctrine Explanation Cards (1 with the full keyword doctrine + 3 distractors)
-            List<String> choices = buildReasoningChoices(rq.getCorrectAnswer());
+            List<String> choices = buildReasoningChoices(rq);
             char[] badges = {'A', 'B', 'C', 'D'};
             for (int i = 0; i < choices.size(); i++) {
                 final String chosenExplanation = choices.get(i);
@@ -558,7 +558,13 @@ public class BattleScreen extends ScreenAdapter {
         return list;
     }
 
-    private List<String> buildReasoningChoices(String correctDefinition) {
+    /**
+     * One correct explanation plus up to 3 wrong ones. A wrong card is only
+     * used if the question itself rejects it: similar definitions (Getter and
+     * Setter, Subclass and Superclass) share enough keywords to pass.
+     */
+    private List<String> buildReasoningChoices(ReasoningQuestion question) {
+        String correctDefinition = question.getCorrectAnswer();
         Set<String> pool = new LinkedHashSet<>();
         pool.add(correctDefinition);
 
@@ -568,7 +574,8 @@ public class BattleScreen extends ScreenAdapter {
             if (pool.size() >= 4) {
                 break;
             }
-            if (!t.getDefinition().equalsIgnoreCase(correctDefinition)) {
+            if (!t.getDefinition().equalsIgnoreCase(correctDefinition)
+                    && !question.checkAnswer(t.getDefinition())) {
                 pool.add(t.getDefinition());
             }
         }
@@ -581,7 +588,9 @@ public class BattleScreen extends ScreenAdapter {
             if (pool.size() >= 4) {
                 break;
             }
-            pool.add(fb);
+            if (!question.checkAnswer(fb)) {
+                pool.add(fb);
+            }
         }
         List<String> list = new ArrayList<>(pool);
         Collections.shuffle(list, uiRandom);
