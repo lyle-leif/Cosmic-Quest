@@ -168,11 +168,11 @@ Levels outside 1–3 are rejected. Level 3 aliens act as bosses.
 | `PrologueScreen` | Plays every time the game starts, and is replayable from the menu's PROLOGUE button. Plays `assets/video/prologue.webm` (gdx-video; WebM, VP9 + Vorbis) with its own narration, voices, music and burned-in subtitles. SKIP or Esc leaves early. When the video ends, is skipped, or cannot play, it always returns to the main menu; it never starts a battle |
 | `CodexScreen` | Gallery of the pilots and the 4 aliens with portraits, sprites and their rules |
 | `BattleScreen` | Question phase (portraits, question, clickable answers, 30-second timer, power-up slots, hint) and attack phase (pixel arena, attack and hit animations, damage numbers, screen shake); Solo and Squad |
-| `VictoryScreen`, `GameOverScreen` | Stars, accuracy, damage, missed questions with answers; Retry or Menu |
+| `VictoryScreen`, `GameOverScreen` | Stars, accuracy, damage, missed questions with answers; Retry or Menu. The missed-questions debrief fills the card down to the buttons and only scrolls when it overflows |
 
-Support classes in `ui`: `CosmicAssets` (fonts, textures, Scene2D skin), `CosmicAudio` (generated retro sound effects), `CosmicTheme` (colours, 1280×720 layout constants). The battle rules still come only from `logic`, as in the console version (D10).
+Support classes in `ui`: `CosmicAssets` (fonts, textures, Scene2D skin), `CosmicAudio` (generated retro sound effects and looping background music), `CosmicTheme` (colours, layout constants, shared viewport), `DebriefList` (missed-questions review), `CardArt` (result-card art sizing). Screen changes fade through black (`CosmicQuestGame.transitionTo`). The battle rules still come only from `logic`, as in the console version (D10).
 
-Not built yet: Loading screen, Settings, Credits, music, parallax backgrounds, hazards, Suit Locker.
+Not built yet: Loading screen, Settings, Credits, parallax backgrounds, hazards, Suit Locker.
 
 #### Known GUI issues to fix before v0.2-gui-alpha
 
@@ -219,7 +219,7 @@ Outfits are drawn by tinting sprite layers with `batch.setColor`, so no extra ar
  
 | Area | Requirement |
 |---|---|
-| Platform | Windows desktop; Eclipse Temurin JDK 21; LibGDX with the LWJGL3 backend; window 1280×720 (`FitViewport`) |
+| Platform | Windows desktop; Eclipse Temurin JDK 21; LibGDX with the LWJGL3 backend; 1280×720 design size; `ExtendViewport` fills any window shape (no black bars, minimum window 960×540) |
 | Offline | Every mode works with no internet |
 | Robustness | Bad lesson files, empty answers, missing files and API failures never crash the game |
 | Performance | No visible frame drops during animations or particles; AI calls never block rendering |

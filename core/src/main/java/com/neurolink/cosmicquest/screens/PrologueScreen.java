@@ -94,7 +94,11 @@ public class PrologueScreen extends ScreenAdapter {
         try {
             video = VideoPlayerCreator.createVideoPlayer();
             video.setOnCompletionListener(handle -> videoFinished = true);
-            video.play(file);
+            if (!video.load(file)) {
+                disposeVideo();
+                return false;
+            }
+            video.play();
             video.setVolume(CosmicAudio.isMuted() ? 0f : 1f);
             return true;
         } catch (Throwable e) {
@@ -116,7 +120,7 @@ public class PrologueScreen extends ScreenAdapter {
     }
 
     /**
-     * Marks the prologue as seen and fades to the main menu (end of video, SKIP, Esc or no
+     * Fades to the main menu (end of video, SKIP, Esc or no
      * video). The video keeps playing under the fade; {@link #hide()} frees it.
      */
     private void goToMenu() {
@@ -124,7 +128,6 @@ public class PrologueScreen extends ScreenAdapter {
             return;
         }
         exiting = true;
-        game.markPrologueSeen();
         game.transitionTo(new MainMenuScreen(game));
     }
 
