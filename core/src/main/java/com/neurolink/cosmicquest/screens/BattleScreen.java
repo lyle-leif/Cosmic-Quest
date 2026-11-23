@@ -20,7 +20,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.neurolink.cosmicquest.CosmicQuestGame;
 import com.neurolink.cosmicquest.logic.BattleMode;
 import com.neurolink.cosmicquest.logic.BattleState;
@@ -160,7 +159,7 @@ public class BattleScreen extends ScreenAdapter {
         this.bossIndex = bossIndex;
         this.bossLevel = bossLevel;
         this.squadMode = squadMode;
-        this.stage = new Stage(new FitViewport(CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT), game.getBatch());
+        this.stage = new Stage(CosmicTheme.newViewport(), game.getBatch());
 
         this.displayedHeroHp = getActiveHeroHp();
         this.displayedBossHp = battle.getEntity().getHp();
@@ -221,7 +220,9 @@ public class BattleScreen extends ScreenAdapter {
         Skin skin = assets.getSkin();
 
         Table screenRoot = new Table();
-        screenRoot.setFillParent(true);
+        // The battle keeps its hand-placed 1280x720 layout; the camera stays on its centre and
+        // the backdrop fills any extra window space around it.
+        screenRoot.setBounds(0f, 0f, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
         stage.addActor(screenRoot);
 
         // Top Bar (Retreat / Audio toggles)
@@ -1113,7 +1114,9 @@ public class BattleScreen extends ScreenAdapter {
         // Draw Cosmic Backdrop
         batch.begin();
         batch.setColor(Color.WHITE);
-        batch.draw(backdrop, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+        // Cover the whole visible world (plus a margin so screen shake never shows an edge)
+        CosmicTheme.drawCover(batch, backdrop, CosmicTheme.VIRTUAL_WIDTH * 0.5f, CosmicTheme.VIRTUAL_HEIGHT * 0.5f,
+                stage.getViewport().getWorldWidth() + 48f, stage.getViewport().getWorldHeight() + 48f);
         batch.end();
 
         // Draw Pokemon-style 2D Arena Platforms
@@ -1388,7 +1391,9 @@ public class BattleScreen extends ScreenAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(0.03f, 0.02f, 0.07f, 0.42f * dialogueSlide);
-        shapes.rect(0f, 0f, CosmicTheme.VIRTUAL_WIDTH, 575f);
+        float worldW = stage.getViewport().getWorldWidth() + 48f;
+        float worldBottom = CosmicTheme.VIRTUAL_HEIGHT * 0.5f - stage.getViewport().getWorldHeight() * 0.5f - 24f;
+        shapes.rect(CosmicTheme.VIRTUAL_WIDTH * 0.5f - worldW * 0.5f, worldBottom, worldW, 575f - worldBottom);
         shapes.end();
 
         Entity boss = battle.getEntity();

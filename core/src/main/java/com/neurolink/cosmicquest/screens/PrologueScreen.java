@@ -15,7 +15,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.video.VideoPlayer;
 import com.badlogic.gdx.video.VideoPlayerCreator;
 import com.neurolink.cosmicquest.CosmicQuestGame;
@@ -45,7 +44,7 @@ public class PrologueScreen extends ScreenAdapter {
 
     public PrologueScreen(CosmicQuestGame game) {
         this.game = game;
-        this.stage = new Stage(new FitViewport(CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT), game.getBatch());
+        this.stage = new Stage(CosmicTheme.newViewport(), game.getBatch());
         buildUi();
         if (!startVideo()) {
             leaving = true;  // nothing to show: go straight to the main menu
@@ -157,8 +156,8 @@ public class PrologueScreen extends ScreenAdapter {
         if (frame == null) {
             return;
         }
-        float w = CosmicTheme.VIRTUAL_WIDTH;
-        float h = CosmicTheme.VIRTUAL_HEIGHT;
+        float w = stage.getViewport().getWorldWidth();
+        float h = stage.getViewport().getWorldHeight();
         float scale = Math.min(w / frame.getWidth(), h / frame.getHeight());
         float dw = frame.getWidth() * scale;
         float dh = frame.getHeight() * scale;

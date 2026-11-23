@@ -336,6 +336,9 @@ public class CosmicAssets implements Disposable {
         skin.add("panel-dark", makeOrnateBoxDrawable(CosmicTheme.BG_PANEL, CosmicTheme.GOLD_DEEP, CosmicTheme.GOLD_TRIM, 2), Drawable.class);
         skin.add("panel-hud", makeOrnateBoxDrawable(new Color(0.08f, 0.06f, 0.14f, 0.92f), CosmicTheme.GOLD_TRIM, CosmicTheme.ASTRAL_CYAN, 2), Drawable.class);
         skin.add("panel-crimson", makeOrnateBoxDrawable(new Color(0.16f, 0.04f, 0.08f, 0.94f), CosmicTheme.ZAGREUS_CRIMSON, CosmicTheme.GOLD_BRIGHT, 2), Drawable.class);
+        // Thin separator line between list entries (debrief, codex lessons)
+        skin.add("divider", new TextureRegionDrawable(new TextureRegion(makeSolidTexture(
+                new Color(CosmicTheme.GOLD_DEEP.r, CosmicTheme.GOLD_DEEP.g, CosmicTheme.GOLD_DEEP.b, 0.75f)))), Drawable.class);
 
         // Label Styles
         skin.add("default", new LabelStyle(fontBody, CosmicTheme.TEXT_PARCMENT));
