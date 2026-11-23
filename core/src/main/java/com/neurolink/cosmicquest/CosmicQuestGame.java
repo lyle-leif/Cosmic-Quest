@@ -2,7 +2,6 @@ package com.neurolink.cosmicquest;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
@@ -58,9 +57,6 @@ public class CosmicQuestGame extends Game {
     /** The four aliens in menu order: Void Brute, Star Weaver, Nebula Lich, Lunar Beast. */
     public static final List<IntFunction<Entity>> ALIENS =
             List.of(VoidBrute::new, StarWeaver::new, NebulaLich::new, LunarBeast::new);
-
-    private static final String PREFS_NAME = "cosmic-quest";
-    private static final String PREF_PROLOGUE_SEEN = "prologueSeen";
 
     private SpriteBatch batch;
     private ShapeRenderer shapes;
@@ -190,26 +186,6 @@ public class CosmicQuestGame extends Game {
         fadeShapes.setColor(0f, 0f, 0f, fadeAlpha);
         fadeShapes.rect(0, 0, w, h);
         fadeShapes.end();
-    }
-
-    /** @return true once the player has finished or skipped the prologue. */
-    public boolean isPrologueSeen() {
-        try {
-            return Gdx.app.getPreferences(PREFS_NAME).getBoolean(PREF_PROLOGUE_SEEN, false);
-        } catch (RuntimeException e) {
-            return true;
-        }
-    }
-
-    /** Remembers that the prologue was shown, so it does not open on the next launch. */
-    public void markPrologueSeen() {
-        try {
-            Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
-            prefs.putBoolean(PREF_PROLOGUE_SEEN, true);
-            prefs.flush();
-        } catch (RuntimeException ignored) {
-            // Preferences are a convenience; the game works without them.
-        }
     }
 
     /**
