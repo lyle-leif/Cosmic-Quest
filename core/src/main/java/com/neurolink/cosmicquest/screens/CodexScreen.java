@@ -115,6 +115,7 @@ public class CodexScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
+        CosmicAudio.playMusic(CosmicAudio.MENU_THEME);
     }
 
     private void buildUi() {
@@ -136,7 +137,7 @@ public class CodexScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 CosmicAudio.playClick();
-                game.setScreen(new MainMenuScreen(game));
+                game.transitionTo(new MainMenuScreen(game));
             }
         });
         header.add(backBtn).width(210f).height(38f).right();

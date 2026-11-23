@@ -165,7 +165,7 @@ Levels outside 1–3 are rejected. Level 3 aliens act as bosses.
 | Screen | What it does |
 |---|---|
 | `MainMenuScreen` | Title menu; Solo setup (pilot, alien, level) and Squad setup (2 or 3 pilots) wizards; Load Lesson and How to Play pop-ups |
-| `PrologueScreen` | Story intro with dialogue box |
+| `PrologueScreen` | Plays every time the game starts, and is replayable from the menu's PROLOGUE button. Plays `assets/video/prologue.webm` (gdx-video; WebM, VP9 + Vorbis) with its own narration, voices, music and burned-in subtitles. SKIP or Esc leaves early. When the video ends, is skipped, or cannot play, it always returns to the main menu; it never starts a battle |
 | `CodexScreen` | Gallery of the pilots and the 4 aliens with portraits, sprites and their rules |
 | `BattleScreen` | Question phase (portraits, question, clickable answers, 30-second timer, power-up slots, hint) and attack phase (pixel arena, attack and hit animations, damage numbers, screen shake); Solo and Squad |
 | `VictoryScreen`, `GameOverScreen` | Stars, accuracy, damage, missed questions with answers; Retry or Menu |

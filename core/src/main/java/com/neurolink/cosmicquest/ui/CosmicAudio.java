@@ -2,14 +2,41 @@ package com.neurolink.cosmicquest.ui;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.AudioDevice;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.utils.Timer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Lightweight non-blocking procedural retro synthesizer for Hades/2D pixel UI clicks,
- * sword slashes, boss strikes, and fanfare chimes. Safe on systems without audio devices.
+ * sword slashes, boss strikes, and fanfare chimes, plus looping background music
+ * (menu theme and one battle theme per alien). Safe on systems without audio devices.
  */
 public final class CosmicAudio {
 
+    /** Background music tracks in assets/audio/music (seamless loops). */
+    public static final String MENU_THEME = "audio/music/menu_theme.ogg";
+    private static final String[] ALIEN_THEMES = {
+        "audio/music/battle_void_brute.ogg",
+        "audio/music/battle_star_weaver.ogg",
+        "audio/music/battle_nebula_lich.ogg",
+        "audio/music/battle_lunar_beast.ogg",
+    };
+    private static final String SQUAD_THEME = "audio/music/battle_squad_boss.ogg";
+
+    /** Music sits under the sound effects. */
+    private static final float MUSIC_VOLUME = 0.45f;
+    private static final float FADE_IN_SECONDS = 1.2f;
+    private static final float FADE_OUT_SECONDS = 0.8f;
+    private static final float FADE_TICK = 0.05f;
+
     private static boolean muted = false;
+
+    private static Music music;
+    private static String musicPath;
+    private static float musicVolume;
+    private static final List<Music> fadingOut = new ArrayList<>();
+    private static Timer.Task fader;
 
     private CosmicAudio() {
     }
@@ -20,6 +47,130 @@ public final class CosmicAudio {
 
     public static void toggleMute() {
         muted = !muted;
+        if (music != null) {
+            try {
+                music.setVolume(muted ? 0f : musicVolume);
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    /** Battle theme for an alien index in {@code CosmicQuestGame.ALIENS} order, or the squad theme. */
+    public static String battleTheme(int alienIdx, boolean squad) {
+        if (squad) {
+            return SQUAD_THEME;
+        }
+        return ALIEN_THEMES[Math.floorMod(alienIdx, ALIEN_THEMES.length)];
+    }
+
+    /**
+     * Loops the given track, cross-fading from whatever is playing. Asking for the track that is
+     * already playing does nothing, so screens that share a theme keep it going without a restart.
+     */
+    public static void playMusic(String path) {
+        if (Gdx.audio == null || Gdx.files == null) {
+            return;
+        }
+        if (path.equals(musicPath) && music != null) {
+            return;
+        }
+        fadeOutCurrent();
+        try {
+            Music next = Gdx.audio.newMusic(Gdx.files.internal(path));
+            next.setLooping(true);
+            next.setVolume(0f);
+            next.play();
+            music = next;
+            musicPath = path;
+            musicVolume = 0f;
+        } catch (Throwable missingOrNoDevice) {
+            music = null;
+            musicPath = null;
+        }
+        startFader();
+    }
+
+    /** Fades the current track out. */
+    public static void stopMusic() {
+        fadeOutCurrent();
+        startFader();
+    }
+
+    /** Releases every music stream immediately (game exit). */
+    public static void disposeMusic() {
+        if (fader != null) {
+            fader.cancel();
+            fader = null;
+        }
+        fadeOutCurrent();
+        for (Music m : fadingOut) {
+            disposeQuietly(m);
+        }
+        fadingOut.clear();
+    }
+
+    private static void fadeOutCurrent() {
+        if (music != null) {
+            fadingOut.add(music);
+        }
+        music = null;
+        musicPath = null;
+        musicVolume = 0f;
+    }
+
+    private static void startFader() {
+        if (fader != null && fader.isScheduled()) {
+            return;
+        }
+        fader = Timer.schedule(new Timer.Task() {
+            @Override
+            public void run() {
+                stepFade();
+            }
+        }, 0f, FADE_TICK);
+    }
+
+    /** Runs on the render thread (LibGDX Timer posts its tasks there). */
+    private static void stepFade() {
+        boolean busy = false;
+        if (music != null && musicVolume < MUSIC_VOLUME) {
+            musicVolume = Math.min(MUSIC_VOLUME, musicVolume + MUSIC_VOLUME * FADE_TICK / FADE_IN_SECONDS);
+            try {
+                music.setVolume(muted ? 0f : musicVolume);
+            } catch (Throwable ignored) {
+            }
+            busy = musicVolume < MUSIC_VOLUME;
+        }
+        for (int i = fadingOut.size() - 1; i >= 0; i--) {
+            Music m = fadingOut.get(i);
+            float v;
+            try {
+                v = m.getVolume() - MUSIC_VOLUME * FADE_TICK / FADE_OUT_SECONDS;
+                if (v > 0f) {
+                    m.setVolume(v);
+                }
+            } catch (Throwable broken) {
+                v = 0f;
+            }
+            if (v <= 0f) {
+                disposeQuietly(m);
+                fadingOut.remove(i);
+            } else {
+                busy = true;
+            }
+        }
+        if (!busy && fader != null) {
+            fader.cancel();
+            fader = null;
+        }
+    }
+
+    private static void disposeQuietly(Music m) {
+        try {
+            m.stop();
+            m.dispose();
+        } catch (Throwable ignored) {
+        }
     }
 
     public static void playClick() {

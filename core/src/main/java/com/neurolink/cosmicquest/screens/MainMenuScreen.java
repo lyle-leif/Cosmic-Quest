@@ -25,15 +25,10 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.neurolink.cosmicquest.CosmicQuestGame;
 import com.neurolink.cosmicquest.console.ConsoleMain;
 import com.neurolink.cosmicquest.logic.QuestionGenerator;
-import com.neurolink.cosmicquest.logic.SoloBossBattle;
 import com.neurolink.cosmicquest.logic.SquadBossBattle;
 import com.neurolink.cosmicquest.model.Entity;
-import com.neurolink.cosmicquest.model.LunarBeast;
-import com.neurolink.cosmicquest.model.NebulaLich;
 import com.neurolink.cosmicquest.model.Player;
-import com.neurolink.cosmicquest.model.StarWeaver;
 import com.neurolink.cosmicquest.model.Team;
-import com.neurolink.cosmicquest.model.VoidBrute;
 import com.neurolink.cosmicquest.ui.CosmicAssets;
 import com.neurolink.cosmicquest.ui.CosmicAudio;
 import com.neurolink.cosmicquest.ui.CosmicTheme;
@@ -49,8 +44,7 @@ import java.util.function.IntFunction;
  */
 public class MainMenuScreen extends ScreenAdapter {
 
-    private static final List<IntFunction<Entity>> ALIENS =
-            List.of(VoidBrute::new, StarWeaver::new, NebulaLich::new, LunarBeast::new);
+    private static final List<IntFunction<Entity>> ALIENS = CosmicQuestGame.ALIENS;
 
     private static final String[] PILOT_ARCHETYPES = {
         "VANGUARD BLADE-MASTER",
@@ -97,6 +91,7 @@ public class MainMenuScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
+        CosmicAudio.playMusic(CosmicAudio.MENU_THEME);
     }
 
     private void buildHadesTitleUi() {
@@ -150,6 +145,16 @@ public class MainMenuScreen extends ScreenAdapter {
             }
         });
 
+        TextButton prologueBtn = new TextButton("P R O L O G U E", skin, "hades-menu");
+        prologueBtn.getLabel().setAlignment(Align.center);
+        prologueBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                game.transitionTo(new PrologueScreen(game));
+            }
+        });
+
         TextButton exitBtn = new TextButton("E X I T", skin, "hades-menu");
         exitBtn.getLabel().setAlignment(Align.center);
         exitBtn.addListener(new ClickListener() {
@@ -163,6 +168,7 @@ public class MainMenuScreen extends ScreenAdapter {
         leftMenuCol.add(squadBtn).width(380f).height(48f).padBottom(6f).row();
         leftMenuCol.add(loadBtn).width(380f).height(46f).padBottom(6f).row();
         leftMenuCol.add(helpBtn).width(380f).height(46f).padBottom(6f).row();
+        leftMenuCol.add(prologueBtn).width(380f).height(46f).padBottom(6f).row();
         leftMenuCol.add(exitBtn).width(380f).height(46f).row();
 
         root.add(leftMenuCol).left().expand();
@@ -697,7 +703,7 @@ public class MainMenuScreen extends ScreenAdapter {
             public void clicked(InputEvent event, float x, float y) {
                 CosmicAudio.playClick();
                 dialog.hide();
-                game.setScreen(new PrologueScreen(game));
+                game.transitionTo(new PrologueScreen(game));
             }
         });
 
@@ -707,7 +713,7 @@ public class MainMenuScreen extends ScreenAdapter {
             public void clicked(InputEvent event, float x, float y) {
                 CosmicAudio.playClick();
                 dialog.hide();
-                game.setScreen(new CodexScreen(game));
+                game.transitionTo(new CodexScreen(game));
             }
         });
 
@@ -741,15 +747,8 @@ public class MainMenuScreen extends ScreenAdapter {
     }
 
     private void launchSoloBattle(String pilotName, int alienIdx, int level) {
-        try {
-            Player player = new Player(pilotName);
-            Entity boss = ALIENS.get(alienIdx).apply(level);
-            SoloBossBattle battle = new SoloBossBattle(player, boss, game.createQuestionProvider(), game.getRandom());
-            game.launchBattle(stage, battle, () -> new BattleScreen(game, battle, alienIdx, level, false),
-                    message -> showErrorDialog("Cannot Start Solo Battle", message));
-        } catch (Exception ex) {
-            showErrorDialog("Cannot Start Solo Battle", ex.getMessage());
-        }
+        game.startSoloBattle(stage, pilotName, alienIdx, level,
+                message -> showErrorDialog("Cannot Start Solo Battle", message));
     }
 
     private void launchSquadBattle(int pilotCount, String[] pilotNames, int alienIdx) {

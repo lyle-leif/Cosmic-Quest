@@ -63,6 +63,7 @@ public class VictoryScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
+        CosmicAudio.playMusic(CosmicAudio.MENU_THEME);
     }
 
     private void buildUi() {
@@ -164,7 +165,7 @@ public class VictoryScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 CosmicAudio.playClick();
-                game.setScreen(new MainMenuScreen(game));
+                game.transitionTo(new MainMenuScreen(game));
             }
         });
         btnRow.add(menuBtn).width(230f).height(50f);
@@ -213,14 +214,14 @@ public class VictoryScreen extends ScreenAdapter {
             }
             SquadBossBattle b = new SquadBossBattle(team, boss, game.createQuestionProvider(), game.getRandom());
             game.launchBattle(stage, b, () -> new BattleScreen(game, b, index, level, true),
-                    problem -> game.setScreen(new MainMenuScreen(game)));
+                    problem -> game.transitionTo(new MainMenuScreen(game)));
         } else {
             String pName = (battle instanceof SoloBossBattle prevSolo)
                     ? prevSolo.getPlayer().getName()
                     : "Pilot";
             SoloBossBattle b = new SoloBossBattle(new Player(pName), boss, game.createQuestionProvider(), game.getRandom());
             game.launchBattle(stage, b, () -> new BattleScreen(game, b, index, level, false),
-                    problem -> game.setScreen(new MainMenuScreen(game)));
+                    problem -> game.transitionTo(new MainMenuScreen(game)));
         }
     }
 

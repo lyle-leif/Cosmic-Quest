@@ -1,206 +1,174 @@
 package com.neurolink.cosmicquest.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.ScreenAdapter;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.video.VideoPlayer;
+import com.badlogic.gdx.video.VideoPlayerCreator;
 import com.neurolink.cosmicquest.CosmicQuestGame;
-import com.neurolink.cosmicquest.ui.CosmicAssets;
 import com.neurolink.cosmicquest.ui.CosmicAudio;
 import com.neurolink.cosmicquest.ui.CosmicTheme;
 
 /**
- * Interactive 6-Scene Prologue Cutscene Screen ("The Exodus of Terra & Fall of Nova Elysium").
+ * The prologue: plays the finished prologue video ({@code video/prologue.webm}), with its own
+ * narration, character voices, music and burned-in subtitles, then returns to the main menu.
+ *
+ * <p>SKIP or Esc leaves at any time. When the video ends, is skipped, or cannot be played
+ * (missing file or no video support), the player goes to the main menu. The prologue never
+ * starts a battle.
  */
 public class PrologueScreen extends ScreenAdapter {
 
-    private static final String[] SCENE_TITLES = {
-        "SCENE I  //  YEAR 2194: THE WITHERED CRADLE (DYSTOPIAN EARTH)",
-        "SCENE II  //  VOYAGE OF THE ARK-SHIP AEGIS-IX",
-        "SCENE III  //  NEW EDEN: THE COLONY OF NOVA ELYSIUM",
-        "SCENE IV  //  THE ECLIPSE INVASION: FOUR COSMIC TITANS",
-        "SCENE V  //  THE COLONIAL GOVERNMENT'S MANDATE",
-        "SCENE VI  //  PROTOCOL OLYMPUS: THE TRIAL BEGINS"
-    };
-
-    private static final String[] SCENE_SPEAKERS = {
-        "CHRONICLE ARCHIVE  //  TERRA FINAL LOG",
-        "COMMANDER OF ARK AEGIS-IX",
-        "NOVA ELYSIUM COLONIAL CHRONICLE",
-        "PLANETARY DEFENSE ALERT",
-        "HIGH CHANCELLOR OF NOVA ELYSIUM",
-        "THE CADET  //  VANGUARD OF HUMANITY"
-    };
-
-    private static final String[] SCENE_TEXTS = {
-        "\"Earth did not end in fire... it ended in hunger. By 2194, the last harvests turned to ash, the oceans dried to salt, and our cradle became a starving dystopia with no resources left to sustain human life.\"",
-        "\"With nothing left to harvest on Earth, the last 50,000 survivors boarded the Colony Ark AEGIS-IX -- entrusting their lives to a lone astral vanguard: The Cadet, piloting into the uncharted deep void.\"",
-        "\"Beyond the Andromeda Drift, we discovered a lush sanctuary planet: NOVA ELYSIUM. For seven golden years, humanity planted new fields, raised crystalline dome-cities, and believed we were finally safe.\"",
-        "\"We were wrong. Drawn by our new planet's living core, four ancient Cosmic Entities from rival worlds tore open the sky -- the Void Brute, Star Weaver, Nebula Lich, and Lunar Beast -- invading our sanctuary!\"",
-        "\"Cadet! The Colonial Government commissions you under Protocol Olympus. Sync your Stygian Star-Blade with the NeuroLink Codex, strike down the four Cosmic Invaders, and free Nova Elysium from their grasp!\"",
-        "\"Earth fell once. Nova Elysium will not fall on my watch. Every correct decree fuels my blade -- let the Cosmic Invaders come!\""
-    };
-
-    private static final String[] SCENE_BACKDROPS = {
-        "backgrounds/env_wreckage_drift.png",
-        "backgrounds/env_deep_field.png",
-        "backgrounds/env_andromeda_drift.png",
-        "backgrounds/env_event_horizon.png",
-        "backgrounds/env_crimson_necropolis.png",
-        "backgrounds/env_supernova_bloom.png"
-    };
+    /** Path of the prologue video inside the assets folder. */
+    public static final String VIDEO_PATH = "video/prologue.webm";
 
     private final CosmicQuestGame game;
-    private final CosmicAssets assets;
     private final Stage stage;
-    private int sceneIndex = 0;
-    private float animTime = 0f;
 
-    private Label sceneHeaderLabel;
-    private Label speakerLabel;
-    private Label storyTextLabel;
-    private TextButton nextBtn;
+    private VideoPlayer video;
+    private volatile boolean videoFinished;
+    private boolean leaving;
+    private boolean exiting;
 
     public PrologueScreen(CosmicQuestGame game) {
         this.game = game;
-        this.assets = game.getAssets();
         this.stage = new Stage(new FitViewport(CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT), game.getBatch());
-
         buildUi();
-        refreshScene();
+        if (!startVideo()) {
+            leaving = true;  // nothing to show: go straight to the main menu
+        }
     }
 
     @Override
     public void show() {
-        Gdx.input.setInputProcessor(stage);
+        // The video carries its own soundtrack, so the background music steps aside.
+        CosmicAudio.stopMusic();
+        InputMultiplexer input = new InputMultiplexer(stage, new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                if (keycode == Input.Keys.ESCAPE) {
+                    leaving = true;
+                    return true;
+                }
+                return false;
+            }
+        });
+        Gdx.input.setInputProcessor(input);
     }
 
     private void buildUi() {
-        Skin skin = assets.getSkin();
-
         Table root = new Table();
         root.setFillParent(true);
         root.pad(18f, 24f, 18f, 24f);
+        root.top().right();
         stage.addActor(root);
 
-        // Top Bar
-        Table topBar = new Table();
-        topBar.setBackground(skin.getDrawable("panel-dark"));
-        topBar.pad(10f, 18f, 10f, 18f);
-
-        sceneHeaderLabel = new Label("", skin, "gold");
-        topBar.add(sceneHeaderLabel).left().expandX();
-
-        TextButton skipBtn = new TextButton("SKIP PROLOGUE", skin, "utility");
+        TextButton skipBtn = new TextButton("SKIP  [ESC]", game.getAssets().getSkin(), "utility");
         skipBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 CosmicAudio.playClick();
-                game.setScreen(new MainMenuScreen(game));
+                leaving = true;
             }
         });
-        topBar.add(skipBtn).width(170f).height(36f).right();
-
-        root.add(topBar).growX().height(60f).top().row();
-        root.add().expandY().row();
-
-        // Bottom Hades Narrative Box
-        Table box = new Table();
-        box.setBackground(skin.getDrawable("panel-dialogue"));
-        box.pad(20f, 26f, 20f, 26f);
-
-        speakerLabel = new Label("", skin, "cyan");
-        box.add(speakerLabel).width(1150f).left().colspan(2).padBottom(8f).row();
-
-        storyTextLabel = new Label("", skin, "medium");
-        storyTextLabel.setColor(CosmicTheme.TEXT_WARM);
-        storyTextLabel.setWrap(true);
-        box.add(storyTextLabel).width(1150f).left().colspan(2).padBottom(18f).row();
-
-        TextButton prevBtn = new TextButton("PREVIOUS SCENE", skin, "utility");
-        prevBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                if (sceneIndex > 0) {
-                    CosmicAudio.playClick();
-                    sceneIndex--;
-                    refreshScene();
-                }
-            }
-        });
-
-        nextBtn = new TextButton("NEXT SCENE  >>", skin);
-        nextBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                CosmicAudio.playBoonActivate();
-                if (sceneIndex < SCENE_TITLES.length - 1) {
-                    sceneIndex++;
-                    refreshScene();
-                } else {
-                    game.setScreen(new MainMenuScreen(game));
-                }
-            }
-        });
-
-        box.add(prevBtn).width(210f).height(48f).left();
-        box.add(nextBtn).width(280f).height(48f).right();
-
-        root.add(box).width(1220f).height(250f).bottom();
+        root.add(skipBtn).width(170f).height(36f);
     }
 
-    private void refreshScene() {
-        sceneHeaderLabel.setText(SCENE_TITLES[sceneIndex] + "   (" + (sceneIndex + 1) + " / " + SCENE_TITLES.length + ")");
-        speakerLabel.setText(SCENE_SPEAKERS[sceneIndex]);
-        storyTextLabel.setText(SCENE_TEXTS[sceneIndex]);
-        if (sceneIndex == SCENE_TITLES.length - 1) {
-            nextBtn.setText("ENTER PANTHEON  >>");
-        } else {
-            nextBtn.setText("NEXT SCENE  >>");
+    private boolean startVideo() {
+        FileHandle file = findVideo();
+        if (file == null) {
+            return false;
         }
+        try {
+            video = VideoPlayerCreator.createVideoPlayer();
+            video.setOnCompletionListener(handle -> videoFinished = true);
+            video.play(file);
+            video.setVolume(CosmicAudio.isMuted() ? 0f : 1f);
+            return true;
+        } catch (Throwable e) {
+            // Missing natives, an unsupported format or a broken file.
+            disposeVideo();
+            return false;
+        }
+    }
+
+    private static FileHandle findVideo() {
+        for (FileHandle candidate : new FileHandle[] {
+            Gdx.files.internal(VIDEO_PATH),
+            Gdx.files.internal("assets/" + VIDEO_PATH)}) {
+            if (candidate.exists()) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Marks the prologue as seen and fades to the main menu (end of video, SKIP, Esc or no
+     * video). The video keeps playing under the fade; {@link #hide()} frees it.
+     */
+    private void goToMenu() {
+        if (exiting) {
+            return;
+        }
+        exiting = true;
+        game.markPrologueSeen();
+        game.transitionTo(new MainMenuScreen(game));
     }
 
     @Override
     public void render(float delta) {
-        animTime += delta;
-        ScreenUtils.clear(CosmicTheme.BG_OBSIDIAN);
-
+        if (leaving || videoFinished) {
+            goToMenu();
+        }
+        ScreenUtils.clear(Color.BLACK);
         stage.getViewport().apply();
         SpriteBatch batch = game.getBatch();
         batch.setProjectionMatrix(stage.getCamera().combined);
-
-        Texture bg = assets.loadTexture(SCENE_BACKDROPS[sceneIndex], false);
-        float bob = MathUtils.sin(animTime * 2.8f) * 6f;
-
-        batch.begin();
-        batch.draw(bg, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
-
-        // Draw 8-bit pixel sprites corresponding to each Prologue beat
-        if (sceneIndex == 1 || sceneIndex == 2 || sceneIndex == 4 || sceneIndex == 5) {
-            batch.draw(assets.getCadetPixelSprite(false), 180f, 295f + bob, 212f, 192f);
-        }
-        if (sceneIndex == 3 || sceneIndex == 4) {
-            batch.draw(assets.loadTexture("sprites/enemy_void_brute.png", true), 520f, 305f - bob * 0.6f, 165f, 165f);
-            batch.draw(assets.loadTexture("sprites/enemy_star_weaver.png", true), 700f, 315f + bob * 0.6f, 165f, 165f);
-            batch.draw(assets.loadTexture("sprites/enemy_nebula_lich.png", true), 880f, 305f - bob * 0.6f, 165f, 165f);
-            batch.draw(assets.loadTexture("sprites/enemy_lunar_beast.png", true), 1060f, 315f + bob * 0.6f, 165f, 165f);
-        }
-        batch.end();
-
+        drawVideo(batch);
         stage.act(delta);
         stage.draw();
     }
+
+    private void drawVideo(SpriteBatch batch) {
+        if (video == null) {
+            return;
+        }
+        try {
+            video.update();
+        } catch (Throwable e) {
+            leaving = true;
+            return;
+        }
+        Texture frame = video.getTexture();
+        if (frame == null) {
+            return;
+        }
+        float w = CosmicTheme.VIRTUAL_WIDTH;
+        float h = CosmicTheme.VIRTUAL_HEIGHT;
+        float scale = Math.min(w / frame.getWidth(), h / frame.getHeight());
+        float dw = frame.getWidth() * scale;
+        float dh = frame.getHeight() * scale;
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(frame, (w - dw) / 2f, (h - dh) / 2f, dw, dh);
+        batch.end();
+    }
+
+    // ------------------------------------------------------------------ lifecycle
 
     @Override
     public void resize(int width, int height) {
@@ -208,7 +176,21 @@ public class PrologueScreen extends ScreenAdapter {
     }
 
     @Override
-    public void dispose() {
+    public void hide() {
+        // Screens are never disposed by the game, and this one is not shown again (each replay
+        // makes a new PrologueScreen), so free the video decoder and the stage here.
+        disposeVideo();
         stage.dispose();
+    }
+
+    private void disposeVideo() {
+        if (video != null) {
+            try {
+                video.dispose();
+            } catch (Throwable ignored) {
+                // Nothing more to free.
+            }
+            video = null;
+        }
     }
 }
