@@ -2,7 +2,6 @@ package com.neurolink.cosmicquest.screens;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
@@ -213,15 +212,15 @@ public class VictoryScreen extends ScreenAdapter {
                 team.addPlayer(new Player("Pilot 2"));
             }
             SquadBossBattle b = new SquadBossBattle(team, boss, game.createQuestionProvider(), game.getRandom());
-            b.startBattle();
-            game.setScreen(new BattleScreen(game, b, index, level, true));
+            game.launchBattle(stage, b, () -> new BattleScreen(game, b, index, level, true),
+                    problem -> game.setScreen(new MainMenuScreen(game)));
         } else {
             String pName = (battle instanceof SoloBossBattle prevSolo)
                     ? prevSolo.getPlayer().getName()
                     : "Pilot";
             SoloBossBattle b = new SoloBossBattle(new Player(pName), boss, game.createQuestionProvider(), game.getRandom());
-            b.startBattle();
-            game.setScreen(new BattleScreen(game, b, index, level, false));
+            game.launchBattle(stage, b, () -> new BattleScreen(game, b, index, level, false),
+                    problem -> game.setScreen(new MainMenuScreen(game)));
         }
     }
 

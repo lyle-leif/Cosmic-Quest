@@ -78,7 +78,7 @@ Full rules: `docs/LESSON_FORMAT.md`. Sample: `assets/lessons/OOP_Fundamentals.tx
 |---|---|---|
 | Identification | Void Brute | Shows a definition; the typed term must match after normalizing (trim, lower case, single spaces) |
 | Multiple choice | Nebula Lich | The correct term plus 3 other terms, shuffled; accepts A–D or the option text |
-| Enumeration | Lunar Beast | List every item of an `[ENUM]` line; partial damage by match ratio (3 of 4 = 0.75) |
+| Enumeration | Lunar Beast | List every item of an `[ENUM]` line; partial damage by match ratio: (right − wrong items) ÷ list size, never below 0 (3 of 4 = 0.75; all 4 plus 1 wrong = 0.75) |
 | Reasoning | Star Weaver | "Explain <term> in your own words"; passes when at least 60% of the keywords appear (`KEYWORD_PASS_RATIO = 0.6`) |
  
 - Questions are generated offline from the lesson by `QuestionGenerator` (P0).
@@ -178,11 +178,17 @@ Not built yet: Loading screen, Settings, Credits, music, parallax backgrounds, h
 
 | Issue | Fix |
 |---|---|
-| With AI keys set, the window freezes while the AI answers (up to the timeout per provider), because battles are started on the render thread. Breaks the performance rule in section 8. | Start the battle on a background thread, show a "Generating questions..." screen, then switch with `Gdx.app.postRunnable`. |
+| ~~With AI keys set, the window freezes while the AI answers.~~ | **Fixed:** battles start and later question refills run on a background thread behind a "Generating questions..." box; the screen switches with `Gdx.app.postRunnable`. |
 | The art, file names, code names and texts copy Hades / Hades II (names such as `menu_hades_splash.png`, `ZAGREUS_CRIMSON`, the tagline "THERE IS NO ESCAPE", the pillar logo). | Rename to Cosmic Quest's own names, change the tagline and logo shape, keep only the general art style. |
 | No `CREDITS.md`; fonts are Palatino and Trebuchet baked into bitmaps (commercial fonts). | List every image's source and licence in `CREDITS.md`; switch to free fonts (for example Google Fonts). |
-| "Gravity Slam" cuts 5 seconds from the next timer after a Void Brute miss. This rule exists only in the GUI, and the real special move is Ground Slam (1.5× damage). | Remove it, or move it into `logic` so both versions match. |
-| If the lesson file is not found, the GUI quietly uses a lesson written into the code. | Show the "No file found" error, as the console does. |
+| ~~"Gravity Slam" cuts 5 seconds from the next timer (GUI only).~~ | **Fixed:** removed; the timer is always 30 seconds, as in the console. |
+| ~~If the lesson file is not found, the GUI quietly uses a lesson written into the code.~~ | **Fixed:** the lesson name then reads "Built-in sample (lesson file not found)". |
+| ~~Power-ups could be earned but not used or seen.~~ | **Fixed:** 3 power-up slot buttons above the question, with locked turns shown; a message when one is earned. |
+| ~~Selecting every Enumeration chip always won.~~ | **Fixed in `logic`:** each wrong item cancels a right one (see D11). |
+| ~~The Codex swapped Star Weaver and Lunar Beast and described rules that do not exist (+5 streak damage, Lunar Howl, Gravity Slam); How to Play listed /commands and buttons the GUI does not have.~~ | **Fixed:** texts match the real rules and controls. |
+| ~~No feedback during battle.~~ | **Fixed:** after a miss the right answer is shown (partial % for lists), plus Hex Bolt, power-up and AI status messages. The special-move callout only shows on turns it really happens. |
+| ~~RETREAT went straight to the menu.~~ | **Fixed:** it ends the battle as a loss and opens the Game Over debrief, like the console's `/quit`. |
+| ~~Hard-coded OOP words filled the cards in other lessons.~~ | **Fixed:** cards use only the lesson's own terms. |
 | No tests cover the screens. | Keep logic out of the screens; add a playtest checklist for Gate 3. |
  
 #### Environment hazards (P2)
@@ -339,6 +345,7 @@ This plan replaces the S04–S08 task order for solo work. Every task keeps its 
 | D8 | Streak timing | On a correct answer the battle calls `increaseStreak()` first, then passes the new streak to `DamageCalculator`. The first correct answer is streak 1 and deals +10% (difficulty 1: 22 damage). |
 | D9 | AI module | The AI providers live in a separate Gradle module, `ai`, that knows nothing about the game and returns plain `AiQuestion` data. `core` depends on `ai`, never the reverse, so there is no cycle. `AiQuestionProvider` in `core` checks each question (for example, exactly 4 options, the answer not given away in the clue) and drops the bad ones. Tests use a fake `HttpTransport`; no test calls a real API. |
 | D10 | GUI answers | In the GUI every answer is clicked: Multiple choice, Identification and Reasoning show 4 cards (the right one plus 3 wrong ones from the lesson), and Enumeration shows item chips to toggle. The console keeps typed answers. Every card is still checked by the question's own `checkAnswer`, and a wrong Reasoning card is only shown if `checkAnswer` rejects it (similar definitions such as Getter and Setter share enough keywords to pass). |
+| D11 | Wrong enumeration items | Each wrong item cancels one right item: ratio = max(0, right − wrong) ÷ list size. Without it, toggling every GUI chip (or typing every word you know) always won. Typing only right items scores as before. |
 
 ### 15.2 Tasks
 

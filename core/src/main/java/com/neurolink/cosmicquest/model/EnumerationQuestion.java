@@ -8,7 +8,8 @@ import java.util.Set;
  * A question that asks the player to list every item of a group, separated
  * by commas. Order, capital letters, extra spaces and punctuation do not
  * matter. A partly right answer still earns a match ratio, which the battle
- * uses for partial damage.
+ * uses for partial damage. Each wrong item cancels one right item, so
+ * naming everything you can think of does not pay.
  */
 public class EnumerationQuestion extends Question {
 
@@ -58,27 +59,38 @@ public class EnumerationQuestion extends Question {
     }
 
     /**
-     * Works out how much of the list the player named. Each item counts once,
-     * even if the player repeats it.
+     * Works out how much of the list the player named: (right items - wrong
+     * items) / items in the list, never below 0. Each item counts once, even
+     * if the player repeats it, and blank parts are ignored.
      *
      * @param input what the player typed, items separated by commas.
-     * @return from 0.0 (none named) to 1.0 (all named); 3 of 4 gives 0.75.
+     * @return from 0.0 to 1.0; 3 of 4 gives 0.75, all 4 plus 1 wrong item gives 0.75.
      */
     public double getMatchRatio(String input) {
         if (input == null || input.isBlank()) {
             return 0.0;
         }
+        Set<String> expected = new HashSet<>();
+        for (String item : items) {
+            expected.add(clean(item));
+        }
         Set<String> answered = new HashSet<>();
         for (String part : input.split(ITEM_SEPARATOR)) {
-            answered.add(clean(part));
-        }
-        int matched = 0;
-        for (String item : items) {
-            if (answered.contains(clean(item))) {
-                matched++;
+            String cleaned = clean(part);
+            if (!cleaned.isEmpty()) {
+                answered.add(cleaned);
             }
         }
-        return (double) matched / items.size();
+        int matched = 0;
+        int wrong = 0;
+        for (String given : answered) {
+            if (expected.contains(given)) {
+                matched++;
+            } else {
+                wrong++;
+            }
+        }
+        return Math.max(0, matched - wrong) / (double) items.size();
     }
 
     /**

@@ -58,9 +58,9 @@ public class CodexScreen extends ScreenAdapter {
         "Squad Hero II (Gun)  //  Long-Range Plasma Marksman",
         "Squad Hero III (Spear)  //  Astral Valkyrie Lancer",
         "Guardian Boss I  //  Identification Trial",
-        "Guardian Boss II  //  Enumeration Trial",
+        "Guardian Boss II  //  Reasoning Trial",
         "Guardian Boss III  //  Multiple Choice Trial",
-        "Guardian Boss IV  //  Reasoning Trial"
+        "Guardian Boss IV  //  Enumeration Trial"
     };
 
     private static final String[] LORE = {
@@ -74,13 +74,13 @@ public class CodexScreen extends ScreenAdapter {
     };
 
     private static final String[] MECHANICS = {
-        "SWORD COMBAT MECHANIC: Answering correctly builds Streak (+5 bonus damage per streak, up to +15). Every 3rd consecutive right answer grants a random Pantheon Boon: Aegis Shield, Hull Repair, Double Damage, or Oracle Hint!",
-        "GUNNER SQUAD MECHANIC: Takes every 2nd turn in Squad Pantheon mode! Switches both the Hades Dialogue Portrait and the 2D Pixel Sprite to Cadet Striker, firing rapid-fire emerald plasma rail-beams across the arena.",
-        "SPEAR SQUAD MECHANIC: Takes every 3rd turn in Squad Pantheon mode! Switches both the Hades Dialogue Portrait and the 2D Pixel Sprite to Cadet Lancer, leaping across the arena with a piercing violet-gold spear thrust.",
-        "TRIAL & SPECIAL MOVE: Presents a definition and 4 clickable Term Boon Cards. On a wrong answer or timeout, unleashes GRAVITY SLAM -- dealing hull damage and shrinking your next turn's timer by 5 seconds!",
-        "TRIAL & SPECIAL MOVE: Asks for all items in a category. Click every matching Rune Chip and press WEAVE & STRIKE! Partial matches still deal partial damage, but any miss triggers THREAD BIND -- locking one of your Power-Up Boons for 2 turns!",
-        "TRIAL & SPECIAL MOVE: Presents 4 clickable Multiple Choice (A-D) Boon Cards. Using an Oracle Hint eliminates 2 wrong options. On a miss, unleashes HEX BOLT -- shuffling the options when the question returns!",
-        "TRIAL & SPECIAL MOVE: Asks you to explain a concept using its sacred OOP keywords. Pick the Doctrine Card containing >= 60% of the keywords, or suffer LUNAR HOWL (+5 bonus claw damage)!"
+        "SWORD PILOT: Each right answer in a row adds +10% damage, up to +50%. Every 3 right answers in a row earn a random power-up (Shield, Repair, Double Damage or Hint); you can hold 3. Click a power-up slot before you answer to use it.",
+        "GUNNER (SQUAD PILOT 2): In a Squad battle pilots take turns in order, and the Gunner fires right after Pilot 1. Each pilot keeps their own hull, streak and power-ups. A pilot at 0 hull is skipped.",
+        "SPEAR (SQUAD PILOT 3): Joins a 3-pilot squad and takes the turn after the Gunner. A wrong answer only hurts the pilot who answered; the squad loses when every pilot is down.",
+        "IDENTIFICATION TRIAL: Shows a definition; click the matching term card. GROUND SLAM: every 3rd turn its strike deals 1.5 times its attack power.",
+        "REASONING TRIAL: Asks you to explain a term; pick the card that explains it (the right one uses at least 60% of the key words). THREAD BIND: each strike locks one of your power-ups for 2 turns.",
+        "MULTIPLE CHOICE TRIAL: Pick A, B, C or D. A Hint power-up hides 2 wrong options. HEX BOLT (level 3): a missed question comes back later with its choices reshuffled.",
+        "ENUMERATION TRIAL: Select every item of the list, then press WEAVE & STRIKE. Each wrong item cancels a right one, and a partial list deals partial damage. MOON POUNCE: its strike deals 2 extra damage for each item you missed."
     };
 
     private static final String[] PORTRAIT_PATHS = {
