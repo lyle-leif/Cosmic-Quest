@@ -71,10 +71,10 @@ public class BattleScreen extends ScreenAdapter {
     private static final float BASE_TURN_SECONDS = 30f;
 
     // 2D Pixel Stage Anchor Coordinates (Pokemon-inspired diagonal battle staging)
-    private static final float HERO_BASE_X = 210f;
-    private static final float HERO_BASE_Y = 305f;
-    private static final float BOSS_BASE_X = 835f;
-    private static final float BOSS_BASE_Y = 395f;
+    public static final float HERO_BASE_X = 210f;
+    public static final float HERO_BASE_Y = 305f;
+    public static final float BOSS_BASE_X = 835f;
+    public static final float BOSS_BASE_Y = 395f;
 
     private final CosmicQuestGame game;
     private final CosmicAssets assets;
@@ -108,6 +108,10 @@ public class BattleScreen extends ScreenAdapter {
     private float cutsceneDuration = 1.75f;
     private boolean playerStrikeSoundPlayed = false;
     private boolean bossStrikeSoundPlayed = false;
+    /** Set once the battle is over and the result screen has been requested. */
+    private boolean leavingBattle = false;
+    /** Pause after the final hit so it lands before the result screen fades in. */
+    private static final float FINAL_HIT_HOLD_SECONDS = 0.6f;
     private float screenShakeTime = 0f;
     private float screenShakeIntensity = 0f;
 
@@ -168,6 +172,7 @@ public class BattleScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
+        CosmicAudio.playMusic(CosmicAudio.battleTheme(bossIndex, squadMode));
     }
 
     private Player getActivePlayer() {
@@ -231,9 +236,10 @@ public class BattleScreen extends ScreenAdapter {
                     return;
                 }
                 CosmicAudio.playClick();
+                leavingBattle = true;
                 battle.endBattle();
                 CosmicAudio.playDefeat();
-                game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
+                game.transitionTo(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
             }
         });
         topBar.add(retreatBtn).width(210f).height(34f).left();
@@ -950,6 +956,12 @@ public class BattleScreen extends ScreenAdapter {
 
     private void finishCutsceneAndContinue() {
         if (battle.isOver()) {
+            // The screen keeps rendering while the result screen fades in, and this runs every
+            // frame once the cutscene is over: award stars and play the jingle only once.
+            if (leavingBattle) {
+                return;
+            }
+            leavingBattle = true;
             int stars = 0;
             if (battle instanceof SoloBossBattle solo) {
                 stars = solo.getStars();
@@ -959,22 +971,42 @@ public class BattleScreen extends ScreenAdapter {
             if (battle.getState() == BattleState.WON) {
                 game.addStars(stars);
                 CosmicAudio.playVictory();
-                game.setScreen(new VictoryScreen(game, battle, bossIndex, bossLevel, squadMode, stars));
+                game.transitionTo(new VictoryScreen(game, battle, bossIndex, bossLevel, squadMode, stars), FINAL_HIT_HOLD_SECONDS);
             } else {
                 CosmicAudio.playDefeat();
-                game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
+                game.transitionTo(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode), FINAL_HIT_HOLD_SECONDS);
             }
         } else if (game.isAiEnabled()) {
             phase = Phase.LOADING;
             game.runInBackground(battle::nextTurn, this::prepareCurrentTurnQuestion, problem -> {
                 // No next question could be made: end the battle instead of getting stuck.
                 battle.endBattle();
-                game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
+                game.transitionTo(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
             });
         } else {
             battle.nextTurn();
             prepareCurrentTurnQuestion();
         }
+    }
+
+    /**
+     * Draws the two arena pedestals: the pilot's (bottom-left) and the alien's
+     * (top-right). Shared with the prologue's last scene so both show the same arena.
+     * The caller must have begun {@code shapes} in Filled mode.
+     *
+     * @param shapes an active shape renderer.
+     * @param bossAccent the alien's accent colour for the top of its pedestal.
+     */
+    public static void drawArenaPedestals(ShapeRenderer shapes, Color bossAccent) {
+        shapes.setColor(0.06f, 0.05f, 0.12f, 0.82f);
+        shapes.ellipse(HERO_BASE_X - 35f, HERO_BASE_Y - 28f, 250f, 68f);
+        shapes.setColor(CosmicTheme.ASTRAL_CYAN.r, CosmicTheme.ASTRAL_CYAN.g, CosmicTheme.ASTRAL_CYAN.b, 0.38f);
+        shapes.ellipse(HERO_BASE_X - 20f, HERO_BASE_Y - 20f, 220f, 52f);
+
+        shapes.setColor(0.08f, 0.04f, 0.12f, 0.84f);
+        shapes.ellipse(BOSS_BASE_X - 30f, BOSS_BASE_Y - 26f, 265f, 72f);
+        shapes.setColor(bossAccent.r, bossAccent.g, bossAccent.b, 0.42f);
+        shapes.ellipse(BOSS_BASE_X - 15f, BOSS_BASE_Y - 18f, 235f, 54f);
     }
 
     /**
@@ -1087,18 +1119,7 @@ public class BattleScreen extends ScreenAdapter {
         // Draw Pokemon-style 2D Arena Platforms
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-
-        // Cadet Arena Pedestal (Bottom-Left)
-        shapes.setColor(0.06f, 0.05f, 0.12f, 0.82f);
-        shapes.ellipse(HERO_BASE_X - 35f, HERO_BASE_Y - 28f, 250f, 68f);
-        shapes.setColor(CosmicTheme.ASTRAL_CYAN.r, CosmicTheme.ASTRAL_CYAN.g, CosmicTheme.ASTRAL_CYAN.b, 0.38f);
-        shapes.ellipse(HERO_BASE_X - 20f, HERO_BASE_Y - 20f, 220f, 52f);
-
-        // Boss Arena Pedestal (Top-Right)
-        shapes.setColor(0.08f, 0.04f, 0.12f, 0.84f);
-        shapes.ellipse(BOSS_BASE_X - 30f, BOSS_BASE_Y - 26f, 265f, 72f);
-        shapes.setColor(bossAccent.r, bossAccent.g, bossAccent.b, 0.42f);
-        shapes.ellipse(BOSS_BASE_X - 15f, BOSS_BASE_Y - 18f, 235f, 54f);
+        drawArenaPedestals(shapes, bossAccent);
         shapes.end();
 
         // Draw 16-Bit Full-Body Pixel Characters (Switches between Idle Stance and Dynamic Attack Stance!)

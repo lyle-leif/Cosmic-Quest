@@ -2,7 +2,11 @@ package com.neurolink.cosmicquest;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -21,8 +25,17 @@ import com.neurolink.cosmicquest.logic.QuestionGenerator;
 import com.neurolink.cosmicquest.logic.QuestionProvider;
 import com.neurolink.cosmicquest.logic.Term;
 import com.neurolink.cosmicquest.logic.TxtParser;
-import com.neurolink.cosmicquest.screens.MainMenuScreen;
+import com.neurolink.cosmicquest.logic.SoloBossBattle;
+import com.neurolink.cosmicquest.model.Entity;
+import com.neurolink.cosmicquest.model.LunarBeast;
+import com.neurolink.cosmicquest.model.NebulaLich;
+import com.neurolink.cosmicquest.model.Player;
+import com.neurolink.cosmicquest.model.StarWeaver;
+import com.neurolink.cosmicquest.model.VoidBrute;
+import com.neurolink.cosmicquest.screens.BattleScreen;
+import com.neurolink.cosmicquest.screens.PrologueScreen;
 import com.neurolink.cosmicquest.ui.CosmicAssets;
+import com.neurolink.cosmicquest.ui.CosmicAudio;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -33,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 /**
@@ -40,6 +54,13 @@ import java.util.function.Supplier;
  * Faithful to ConsoleMain's lesson loading, AI question provider chain, and Solo/Squad rules.
  */
 public class CosmicQuestGame extends Game {
+
+    /** The four aliens in menu order: Void Brute, Star Weaver, Nebula Lich, Lunar Beast. */
+    public static final List<IntFunction<Entity>> ALIENS =
+            List.of(VoidBrute::new, StarWeaver::new, NebulaLich::new, LunarBeast::new);
+
+    private static final String PREFS_NAME = "cosmic-quest";
+    private static final String PREF_PROLOGUE_SEEN = "prologueSeen";
 
     private SpriteBatch batch;
     private ShapeRenderer shapes;
@@ -55,10 +76,22 @@ public class CosmicQuestGame extends Game {
     public static final String BUILT_IN_LESSON_NAME = "Built-in sample (lesson file not found)";
     private int totalStarsEarned = 0;
 
+    /** Screen transitions: fade to black, switch screens, fade back in. */
+    private static final float TRANSITION_OUT_SECONDS = 0.25f;
+    private static final float TRANSITION_IN_SECONDS = 0.35f;
+    private ShapeRenderer fadeShapes;
+    private final Matrix4 fadeProjection = new Matrix4();
+    private Screen pendingScreen;
+    private float pendingDelay;
+    private float fadeAlpha;
+    private int fadeDirection;          // 1 = fading out, -1 = fading in, 0 = idle
+    private InputProcessor heldInput;   // the new screen's input, given back when its fade-in ends
+
     @Override
     public void create() {
         batch = new SpriteBatch();
         shapes = new ShapeRenderer();
+        fadeShapes = new ShapeRenderer();
         assets = new CosmicAssets();
 
         try {
@@ -67,7 +100,137 @@ public class CosmicQuestGame extends Game {
             ai = null;
         }
         loadLessonFile("OOP_Fundamentals.txt");
-        setScreen(new MainMenuScreen(this));
+        showStartScreen();
+    }
+
+    /**
+     * Opens the first screen after loading: the prologue plays every time the game
+     * starts (SKIP / Esc leave it), then the main menu. The loading screen calls this when done.
+     */
+    public void showStartScreen() {
+        transitionTo(new PrologueScreen(this));
+    }
+
+    /**
+     * Switches to another screen with a short fade through black. Input is ignored while the
+     * fade runs, so a double click cannot start two transitions.
+     */
+    public void transitionTo(Screen next) {
+        transitionTo(next, 0f);
+    }
+
+    /**
+     * Like {@link #transitionTo(Screen)}, but holds the current screen for {@code delaySeconds}
+     * first (for example, to let a final hit land before the result screen).
+     */
+    public void transitionTo(Screen next, float delaySeconds) {
+        if (next == null || pendingScreen != null) {
+            return;
+        }
+        Gdx.input.setInputProcessor(null);
+        if (getScreen() == null) {
+            // First screen of the game: fade in from black.
+            swapTo(next);
+            fadeAlpha = 1f;
+            return;
+        }
+        pendingScreen = next;
+        pendingDelay = Math.max(0f, delaySeconds);
+        fadeDirection = 1;
+    }
+
+    private void swapTo(Screen next) {
+        setScreen(next);
+        heldInput = Gdx.input.getInputProcessor();
+        Gdx.input.setInputProcessor(null);
+        fadeDirection = -1;
+    }
+
+    @Override
+    public void render() {
+        super.render();
+        // A slow frame (loading a new screen) must not skip the fade.
+        float dt = Math.min(Gdx.graphics.getDeltaTime(), 1f / 30f);
+        if (fadeDirection == 1) {
+            if (pendingDelay > 0f) {
+                pendingDelay -= dt;
+            } else {
+                fadeAlpha = Math.min(1f, fadeAlpha + dt / TRANSITION_OUT_SECONDS);
+                if (fadeAlpha >= 1f) {
+                    Screen next = pendingScreen;
+                    pendingScreen = null;
+                    swapTo(next);
+                }
+            }
+        } else if (fadeDirection == -1) {
+            fadeAlpha = Math.max(0f, fadeAlpha - dt / TRANSITION_IN_SECONDS);
+            if (fadeAlpha <= 0f) {
+                fadeDirection = 0;
+                if (Gdx.input.getInputProcessor() == null) {
+                    Gdx.input.setInputProcessor(heldInput);
+                }
+                heldInput = null;
+            }
+        }
+        drawFade();
+    }
+
+    private void drawFade() {
+        if (fadeAlpha <= 0f) {
+            return;
+        }
+        int w = Gdx.graphics.getBackBufferWidth();
+        int h = Gdx.graphics.getBackBufferHeight();
+        Gdx.gl.glViewport(0, 0, w, h);
+        fadeProjection.setToOrtho2D(0, 0, w, h);
+        fadeShapes.setProjectionMatrix(fadeProjection);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        fadeShapes.begin(ShapeRenderer.ShapeType.Filled);
+        fadeShapes.setColor(0f, 0f, 0f, fadeAlpha);
+        fadeShapes.rect(0, 0, w, h);
+        fadeShapes.end();
+    }
+
+    /** @return true once the player has finished or skipped the prologue. */
+    public boolean isPrologueSeen() {
+        try {
+            return Gdx.app.getPreferences(PREFS_NAME).getBoolean(PREF_PROLOGUE_SEEN, false);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    /** Remembers that the prologue was shown, so it does not open on the next launch. */
+    public void markPrologueSeen() {
+        try {
+            Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
+            prefs.putBoolean(PREF_PROLOGUE_SEEN, true);
+            prefs.flush();
+        } catch (RuntimeException ignored) {
+            // Preferences are a convenience; the game works without them.
+        }
+    }
+
+    /**
+     * Starts a Solo battle and opens its screen. Used by the main menu and by
+     * the prologue's last scene.
+     *
+     * @param stage the current screen's stage, for the "Generating questions..." box.
+     * @param pilotName the player's name.
+     * @param alienIdx index into {@link #ALIENS}.
+     * @param level alien level, 1 to 3.
+     * @param onError shows a problem, for example a lesson that cannot make questions.
+     */
+    public void startSoloBattle(Stage stage, String pilotName, int alienIdx, int level, Consumer<String> onError) {
+        try {
+            Player player = new Player(pilotName);
+            Entity boss = ALIENS.get(alienIdx).apply(level);
+            SoloBossBattle battle = new SoloBossBattle(player, boss, createQuestionProvider(), random);
+            launchBattle(stage, battle, () -> new BattleScreen(this, battle, alienIdx, level, false), onError);
+        } catch (RuntimeException ex) {
+            onError.accept(ex.getMessage());
+        }
     }
 
     private static Path resolveConfigFile() {
@@ -213,7 +376,7 @@ public class CosmicQuestGame extends Game {
         if (ai == null) {
             try {
                 battle.startBattle();
-                setScreen(battleScreen.get());
+                transitionTo(battleScreen.get());
             } catch (RuntimeException e) {
                 onError.accept(e.getMessage());
             }
@@ -231,7 +394,7 @@ public class CosmicQuestGame extends Game {
         waiting.show(stage);
         runInBackground(battle::startBattle, () -> {
             waiting.hide(null);
-            setScreen(battleScreen.get());
+            transitionTo(battleScreen.get());
         }, message -> {
             waiting.hide(null);
             onError.accept(message);
@@ -295,11 +458,15 @@ public class CosmicQuestGame extends Game {
     @Override
     public void dispose() {
         super.dispose();
+        CosmicAudio.disposeMusic();
         if (batch != null) {
             batch.dispose();
         }
         if (shapes != null) {
             shapes.dispose();
+        }
+        if (fadeShapes != null) {
+            fadeShapes.dispose();
         }
         if (assets != null) {
             assets.dispose();
