@@ -683,9 +683,9 @@ public class MainMenuScreen extends ScreenAdapter {
 
         content.add(new Label("Battle commands & controls:", skin, "gold")).left().padTop(8f).padBottom(4f).row();
         Label cmdLbl = new Label(
-                "  /1, /2, /3 (or click Boon Slot buttons) -- use a power-up before you answer\n"
-                + "  /help (or click ? HELP) -- show these rules again\n"
-                + "  /quit (or click RETREAT) -- give up the battle",
+                "  Power-up slots 1) 2) 3) (top of the question box) -- click one before you answer\n"
+                + "  RETREAT (top left) -- give up the battle; it counts as a loss\n"
+                + "  Enumeration: pick only the right items; each wrong item cancels a right one",
                 skin, "small");
         cmdLbl.setColor(CosmicTheme.ASTRAL_CYAN);
         content.add(cmdLbl).width(660f).left().padBottom(14f).row();
@@ -745,8 +745,8 @@ public class MainMenuScreen extends ScreenAdapter {
             Player player = new Player(pilotName);
             Entity boss = ALIENS.get(alienIdx).apply(level);
             SoloBossBattle battle = new SoloBossBattle(player, boss, game.createQuestionProvider(), game.getRandom());
-            battle.startBattle();
-            game.setScreen(new BattleScreen(game, battle, alienIdx, level, false));
+            game.launchBattle(stage, battle, () -> new BattleScreen(game, battle, alienIdx, level, false),
+                    message -> showErrorDialog("Cannot Start Solo Battle", message));
         } catch (Exception ex) {
             showErrorDialog("Cannot Start Solo Battle", ex.getMessage());
         }
@@ -760,8 +760,9 @@ public class MainMenuScreen extends ScreenAdapter {
             }
             Entity boss = ALIENS.get(alienIdx).apply(SquadBossBattle.BOSS_LEVEL);
             SquadBossBattle battle = new SquadBossBattle(team, boss, game.createQuestionProvider(), game.getRandom());
-            battle.startBattle();
-            game.setScreen(new BattleScreen(game, battle, alienIdx, SquadBossBattle.BOSS_LEVEL, true));
+            game.launchBattle(stage, battle,
+                    () -> new BattleScreen(game, battle, alienIdx, SquadBossBattle.BOSS_LEVEL, true),
+                    message -> showErrorDialog("Cannot Start Squad Battle", message));
         } catch (Exception ex) {
             showErrorDialog("Cannot Start Squad Battle", ex.getMessage());
         }
@@ -827,7 +828,7 @@ public class MainMenuScreen extends ScreenAdapter {
         assets.fontSmall.setColor(0.55f, 0.78f, 0.68f, 0.85f);
         assets.fontSmall.draw(batch, "MAIN MENU  (lesson: " + game.getLessonName() + ")", 42f, 48f);
         assets.fontSmall.draw(batch, game.getAiStatusText(), 42f, 26f);
-        assets.fontSmall.draw(batch, "v1.0.0  //  STARS: " + game.getTotalStarsEarned(), 1085f, 704f);
+        assets.fontSmall.draw(batch, "PREVIEW  //  STARS: " + game.getTotalStarsEarned(), 1085f, 704f);
         assets.fontSmall.setColor(Color.WHITE);
         batch.end();
 

@@ -1,12 +1,19 @@
 package com.neurolink.cosmicquest;
 
 import com.badlogic.gdx.Game;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.neurolink.cosmicquest.ai.AiClient;
 import com.neurolink.cosmicquest.ai.AiConfig;
 import com.neurolink.cosmicquest.ai.JavaHttpTransport;
 import com.neurolink.cosmicquest.logic.AiQuestionProvider;
+import com.neurolink.cosmicquest.logic.BattleMode;
 import com.neurolink.cosmicquest.logic.InvalidLessonFormatException;
 import com.neurolink.cosmicquest.logic.LessonData;
 import com.neurolink.cosmicquest.logic.LocalProvider;
@@ -25,6 +32,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Root LibGDX Game controller for Cosmic Quest (Hades Dialogue x 2D Pixel Battle Edition).
@@ -41,6 +50,9 @@ public class CosmicQuestGame extends Game {
     private LessonData lessonData;
     private String lessonName = "OOP_Fundamentals.txt";
     private boolean useAstralStaff = false;
+
+    /** Shown as the lesson name when no lesson file could be read and the built-in sample is used. */
+    public static final String BUILT_IN_LESSON_NAME = "Built-in sample (lesson file not found)";
     private int totalStarsEarned = 0;
 
     @Override
@@ -144,7 +156,7 @@ public class CosmicQuestGame extends Game {
         }
         if (lessonData == null) {
             lessonData = createFallbackLesson();
-            lessonName = "OOP_Fundamentals.txt";
+            lessonName = BUILT_IN_LESSON_NAME;
         }
         return false;
     }
@@ -164,6 +176,66 @@ public class CosmicQuestGame extends Game {
         enums.put("Four Pillars of OOP", List.of("Encapsulation", "Inheritance", "Polymorphism", "Abstraction"));
         enums.put("Java Access Modifiers", List.of("public", "protected", "default", "private"));
         return new LessonData(terms, enums);
+    }
+
+    /**
+     * Runs slow work (it may wait for the AI) on a background thread so the
+     * window never freezes, then calls back on the render thread.
+     *
+     * @param work the slow part, for example {@code battle::startBattle}.
+     * @param onDone called on the render thread when the work finished.
+     * @param onError called on the render thread with the message if it failed.
+     */
+    public void runInBackground(Runnable work, Runnable onDone, Consumer<String> onError) {
+        Thread worker = new Thread(() -> {
+            try {
+                work.run();
+                Gdx.app.postRunnable(onDone);
+            } catch (RuntimeException e) {
+                Gdx.app.postRunnable(() -> onError.accept(e.getMessage()));
+            }
+        }, "cosmic-question-loader");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    /**
+     * Starts a battle and opens its screen. With AI on, the first questions
+     * are fetched in the background while a "Generating questions..." box is
+     * shown; without AI it starts at once.
+     *
+     * @param stage the current screen's stage, for the waiting box.
+     * @param battle the battle to start.
+     * @param battleScreen makes the battle screen once the battle is ready.
+     * @param onError shows a problem, for example a lesson that cannot make questions.
+     */
+    public void launchBattle(Stage stage, BattleMode battle, Supplier<Screen> battleScreen, Consumer<String> onError) {
+        if (ai == null) {
+            try {
+                battle.startBattle();
+                setScreen(battleScreen.get());
+            } catch (RuntimeException e) {
+                onError.accept(e.getMessage());
+            }
+            return;
+        }
+        Skin skin = assets.getSkin();
+        Dialog waiting = new Dialog("", skin);
+        waiting.setBackground(skin.getDrawable("panel-dialogue"));
+        waiting.pad(24f, 36f, 24f, 36f);
+        waiting.getContentTable().add(new Label("Generating questions...", skin, "gold")).row();
+        waiting.getContentTable().add(new Label("Asking " + ai.getName() + ". Local questions are used if it does not answer.",
+                skin, "small")).padTop(8f);
+        waiting.setModal(true);
+        waiting.setMovable(false);
+        waiting.show(stage);
+        runInBackground(battle::startBattle, () -> {
+            waiting.hide(null);
+            setScreen(battleScreen.get());
+        }, message -> {
+            waiting.hide(null);
+            onError.accept(message);
+        });
     }
 
     public QuestionGenerator createGenerator() {

@@ -64,11 +64,11 @@ public class BattleScreen extends ScreenAdapter {
     private enum Phase {
         PRE_FIGHT_INTRO,
         HADES_DIALOGUE,
-        PIXEL_CUTSCENE
+        PIXEL_CUTSCENE,
+        LOADING
     }
 
     private static final float BASE_TURN_SECONDS = 30f;
-    private static final float GRAVITY_SLAM_PENALTY = 5f;
 
     // 2D Pixel Stage Anchor Coordinates (Pokemon-inspired diagonal battle staging)
     private static final float HERO_BASE_X = 210f;
@@ -94,7 +94,9 @@ public class BattleScreen extends ScreenAdapter {
     // Turn Timer
     private float maxTurnTime = BASE_TURN_SECONDS;
     private float remainingTime = BASE_TURN_SECONDS;
-    private boolean gravitySlamActiveNextTurn = false;
+
+    // Shown above the next question: the right answer after a miss, a power-up earned, Hex Bolt.
+    private String pendingNotice;
 
     // Smooth HP Bar display values
     private float displayedHeroHp;
@@ -225,8 +227,13 @@ public class BattleScreen extends ScreenAdapter {
         retreatBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                if (phase == Phase.LOADING || battle.isOver()) {
+                    return;
+                }
                 CosmicAudio.playClick();
-                game.setScreen(new MainMenuScreen(game));
+                battle.endBattle();
+                CosmicAudio.playDefeat();
+                game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
             }
         });
         topBar.add(retreatBtn).width(210f).height(34f).left();
@@ -259,6 +266,20 @@ public class BattleScreen extends ScreenAdapter {
         turnBadgeLabel = new Label("", skin, "small");
         turnBadgeLabel.setColor(CosmicTheme.ASTRAL_CYAN);
         headerRow.add(turnBadgeLabel).left().expandX();
+        for (int i = 0; i < powerUpButtons.length; i++) {
+            final int slot = i;
+            final TextButton slotButton = new TextButton("", skin, "utility");
+            slotButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    if (!slotButton.isDisabled()) {
+                        activatePowerUpSlot(slot);
+                    }
+                }
+            });
+            powerUpButtons[i] = slotButton;
+            headerRow.add(slotButton).width(165f).height(30f).padLeft(6f);
+        }
         dialogueRoot.add(headerRow).width(1148f).padBottom(6f).row();
 
         // Row 2: Boss Hades Dialogue Quote + Question Prompt (Explicitly constrained to 1148f so text wraps cleanly!)
@@ -313,6 +334,14 @@ public class BattleScreen extends ScreenAdapter {
         questionTextLabel.setText(cadetReply);
         hintBannerLabel.setColor(CosmicTheme.ASTRAL_CYAN);
         hintBannerLabel.setText("GOVERNMENT MANDATE: Answer the Guardian's trials to channel the NeuroLink Codex into your blade!");
+        if (game.isAiEnabled()) {
+            String status = battle.getQuestionStatus();
+            if (battle.getQuestionProblem() != null && status.startsWith("Offline")) {
+                status += " (" + battle.getQuestionProblem() + ")";
+            }
+            hintBannerLabel.setText(hintBannerLabel.getText() + "\n" + status);
+        }
+        refreshPowerUpButtons();
 
         optionsTable.clearChildren();
         TextButton beginBtn = new TextButton("DRAW STYGIAN STAR-BLADE  --  BEGIN Q&A TRIAL  >>", assets.getSkin());
@@ -336,12 +365,8 @@ public class BattleScreen extends ScreenAdapter {
         Player current = getActivePlayer();
         Question q = battle.getCurrentQuestion();
 
-        // Apply Void Brute's Gravity Slam penalty if triggered on previous turn
-        maxTurnTime = gravitySlamActiveNextTurn
-                ? Math.max(8f, BASE_TURN_SECONDS - GRAVITY_SLAM_PENALTY)
-                : BASE_TURN_SECONDS;
+        maxTurnTime = BASE_TURN_SECONDS;
         remainingTime = maxTurnTime;
-        gravitySlamActiveNextTurn = false;
 
         speakerTitleLabel.setText(boss.getName().toUpperCase());
         int dialogueHeroIdx = getDialogueHeroIndex();
@@ -366,7 +391,33 @@ public class BattleScreen extends ScreenAdapter {
         questionTextLabel.setText(promptPrefix + q.getQuestionText());
 
         refreshHintAndBoons();
+        if (pendingNotice != null) {
+            hintBannerLabel.setColor(CosmicTheme.GOLD_BRIGHT);
+            hintBannerLabel.setText(pendingNotice);
+            pendingNotice = null;
+        }
+        refreshPowerUpButtons();
         populateClickableOptions(q);
+    }
+
+    /** Shows the acting pilot's 3 power-up slots: name, locked turns, or empty. */
+    private void refreshPowerUpButtons() {
+        Player current = getActivePlayer();
+        PowerUpInventory inventory = current == null ? null : battle.getInventory(current);
+        for (int i = 0; i < powerUpButtons.length; i++) {
+            TextButton slotButton = powerUpButtons[i];
+            boolean filled = inventory != null && i < inventory.size();
+            if (!filled) {
+                slotButton.setText((i + 1) + ") empty");
+                slotButton.setDisabled(true);
+            } else if (inventory.isLocked(i)) {
+                slotButton.setText((i + 1) + ") LOCKED " + inventory.getLockedTurns(i));
+                slotButton.setDisabled(true);
+            } else {
+                slotButton.setText((i + 1) + ") " + inventory.getPowerUps().get(i).getName());
+                slotButton.setDisabled(phase != Phase.HADES_DIALOGUE);
+            }
+        }
     }
 
     private void refreshHintAndBoons() {
@@ -380,17 +431,18 @@ public class BattleScreen extends ScreenAdapter {
 
     private void activatePowerUpSlot(int slot) {
         Player current = getActivePlayer();
-        if (current == null) {
+        if (current == null || phase != Phase.HADES_DIALOGUE) {
             return;
         }
         try {
             PowerUp used = battle.usePowerUp(current, slot);
             CosmicAudio.playBoonActivate();
             displayedHeroHp = getActiveHeroHp();
-            hintBannerLabel.setColor(CosmicTheme.GOLD_BRIGHT);
-            hintBannerLabel.setText("BOON INVOKED: " + used.getName().toUpperCase() + " -- " + used.getDescription()
-                    + (battle.getHint() != null ? "  |  " + battle.getHint() : ""));
             refreshHintAndBoons();
+            hintBannerLabel.setColor(CosmicTheme.GOLD_BRIGHT);
+            hintBannerLabel.setText("POWER-UP USED: " + used.getName().toUpperCase() + " -- " + used.getDescription()
+                    + (battle.getHint() != null ? "  |  HINT: " + battle.getHint() : ""));
+            refreshPowerUpButtons();
             // Rebuild options in case Hint hid two Multiple Choice options
             if (battle.getCurrentQuestion() instanceof MultipleChoiceQuestion) {
                 populateClickableOptions(battle.getCurrentQuestion());
@@ -544,15 +596,6 @@ public class BattleScreen extends ScreenAdapter {
                 pool.add(t.getTerm());
             }
         }
-        String[] fallbacks = {"Encapsulation", "Polymorphism", "Inheritance", "Abstraction", "Constructor"};
-        for (String fb : fallbacks) {
-            if (pool.size() >= 4) {
-                break;
-            }
-            if (!fb.equalsIgnoreCase(correctTerm)) {
-                pool.add(fb);
-            }
-        }
         List<String> list = new ArrayList<>(pool);
         Collections.shuffle(list, uiRandom);
         return list;
@@ -577,19 +620,6 @@ public class BattleScreen extends ScreenAdapter {
             if (!t.getDefinition().equalsIgnoreCase(correctDefinition)
                     && !question.checkAnswer(t.getDefinition())) {
                 pool.add(t.getDefinition());
-            }
-        }
-        String[] fallbacks = {
-            "Converts source code directly into machine-level bytecode without creating objects.",
-            "Allocates static memory addresses at compile time while forbidding dynamic dispatch.",
-            "Terminates all running threads immediately whenever a constructor is invoked."
-        };
-        for (String fb : fallbacks) {
-            if (pool.size() >= 4) {
-                break;
-            }
-            if (!question.checkAnswer(fb)) {
-                pool.add(fb);
             }
         }
         List<String> list = new ArrayList<>(pool);
@@ -662,10 +692,82 @@ public class BattleScreen extends ScreenAdapter {
 
         dialogueRoot.setTouchable(Touchable.disabled);
 
-        // Remember if Void Brute used Gravity Slam on a miss so next turn's timer shrinks
-        if (!result.isCorrect() && battle.getEntity() instanceof VoidBrute) {
-            gravitySlamActiveNextTurn = true;
+        pendingNotice = turnNotice(result);
+        if (result.getPowerUpEarned() != null) {
+            addFloatingText("POWER-UP: " + result.getPowerUpEarned().getName().toUpperCase() + "!",
+                    HERO_BASE_X - 10f, HERO_BASE_Y + 215f, CosmicTheme.GOLD_BRIGHT, false);
         }
+    }
+
+    /** What the player should know before the next question; null if nothing. */
+    private String turnNotice(TurnResult result) {
+        List<String> parts = new ArrayList<>();
+        Player acting = getActivePlayer();
+        String who = squadMode && acting != null ? acting.getName() + ": " : "";
+        if (!result.isCorrect()) {
+            String answer = result.getQuestion().getCorrectAnswer();
+            if (result.isTimedOut()) {
+                parts.add(who + "Time's up! The answer was: " + answer);
+            } else if (result.getMatchRatio() > 0) {
+                parts.add(who + "Partly right (" + Math.round(result.getMatchRatio() * 100)
+                        + "% of the list). The full list: " + answer);
+            } else {
+                parts.add(who + "Wrong. The answer was: " + answer);
+            }
+            if (battle.getEntity().reshufflesChoices() && result.getQuestion() instanceof MultipleChoiceQuestion) {
+                parts.add("Hex Bolt! That question's choices are reshuffled.");
+            }
+        }
+        if (result.getPowerUpEarned() != null) {
+            parts.add(who + "Power-up earned: " + result.getPowerUpEarned().getName() + "!");
+        }
+        return parts.isEmpty() ? null : String.join("  |  ", parts);
+    }
+
+    /**
+     * The special move's short name if it really happened on this strike,
+     * or null: Ground Slam only on its turn, Moon Pounce only with items
+     * missed, Thread Bind only when a slot was locked, Hex Bolt only on a
+     * reshuffled multiple choice question.
+     */
+    private String specialMoveThatFired(TurnResult result) {
+        Entity boss = battle.getEntity();
+        Question question = result.getQuestion();
+        boolean fired;
+        if (boss.reshufflesChoices()) {
+            fired = question instanceof MultipleChoiceQuestion;
+        } else if (boss.getPowerUpLockTurns() > 0) {
+            fired = freshlyLockedSlot();
+        } else {
+            int missed = 0;
+            if (question instanceof EnumerationQuestion list) {
+                int total = list.getItems().size();
+                missed = total - (int) Math.round(result.getMatchRatio() * total);
+            }
+            fired = result.getDamageTaken() > 0
+                    && boss.getStrikeDamage(battle.getCurrentTurn(), missed) > boss.getAttackPower();
+        }
+        if (!fired) {
+            return null;
+        }
+        String move = boss.getSpecialMove();
+        int colon = move.indexOf(':');
+        return colon > 0 ? move.substring(0, colon) : move;
+    }
+
+    /** True if the alien just locked one of the acting pilot's power-ups. */
+    private boolean freshlyLockedSlot() {
+        Player acting = getActivePlayer();
+        if (acting == null) {
+            return false;
+        }
+        PowerUpInventory inventory = battle.getInventory(acting);
+        for (int i = 0; i < inventory.size(); i++) {
+            if (inventory.getLockedTurns(i) == battle.getEntity().getPowerUpLockTurns()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void spawnSparkBurst(float cx, float cy, Color mainColor, Color altColor, int count) {
@@ -780,6 +882,9 @@ public class BattleScreen extends ScreenAdapter {
                 remainingTime = 0f;
                 triggerTimeout();
             }
+        } else if (phase == Phase.LOADING) {
+            // Waiting for the next question; the timer does not run.
+            dialogueSlide = MathUtils.lerp(dialogueSlide, 0f, Math.min(1f, delta * 12f));
         } else {
             // Slide Hades portraits & dialogue box OUT so the 2D Pixel Battle Stage takes center stage
             dialogueSlide = MathUtils.lerp(dialogueSlide, 0f, Math.min(1f, delta * 12f));
@@ -835,8 +940,11 @@ public class BattleScreen extends ScreenAdapter {
                         HERO_BASE_X - 10f, HERO_BASE_Y + 180f, CosmicTheme.ASTRAL_CYAN, true);
             }
 
-            addFloatingText(boss.getSpecialMove().toUpperCase() + "!",
-                    BOSS_BASE_X - 10f, BOSS_BASE_Y + 205f, bossCol, false);
+            String special = specialMoveThatFired(lastTurnResult);
+            if (special != null) {
+                addFloatingText(special.toUpperCase() + "!",
+                        BOSS_BASE_X - 10f, BOSS_BASE_Y + 205f, bossCol, false);
+            }
         }
     }
 
@@ -856,6 +964,13 @@ public class BattleScreen extends ScreenAdapter {
                 CosmicAudio.playDefeat();
                 game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
             }
+        } else if (game.isAiEnabled()) {
+            phase = Phase.LOADING;
+            game.runInBackground(battle::nextTurn, this::prepareCurrentTurnQuestion, problem -> {
+                // No next question could be made: end the battle instead of getting stuck.
+                battle.endBattle();
+                game.setScreen(new GameOverScreen(game, battle, bossIndex, bossLevel, squadMode));
+            });
         } else {
             battle.nextTurn();
             prepareCurrentTurnQuestion();
@@ -1206,6 +1321,8 @@ public class BattleScreen extends ScreenAdapter {
             modeBanner = "ENCOUNTER INITIATED";
         } else if (phase == Phase.HADES_DIALOGUE) {
             modeBanner = String.format("TRIAL TIMER: %.1fs", remainingTime);
+        } else if (phase == Phase.LOADING) {
+            modeBanner = "PREPARING NEXT QUESTION...";
         } else {
             modeBanner = "2D PIXEL COMBAT PHASE!";
         }

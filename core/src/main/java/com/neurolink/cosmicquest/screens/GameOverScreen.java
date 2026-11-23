@@ -185,15 +185,15 @@ public class GameOverScreen extends ScreenAdapter {
                 team.addPlayer(new Player("Pilot 2"));
             }
             SquadBossBattle b = new SquadBossBattle(team, boss, game.createQuestionProvider(), game.getRandom());
-            b.startBattle();
-            game.setScreen(new BattleScreen(game, b, bossIndex, bossLevel, true));
+            game.launchBattle(stage, b, () -> new BattleScreen(game, b, bossIndex, bossLevel, true),
+                    problem -> game.setScreen(new MainMenuScreen(game)));
         } else {
             String pName = (battle instanceof SoloBossBattle prevSolo)
                     ? prevSolo.getPlayer().getName()
                     : "Pilot";
             SoloBossBattle b = new SoloBossBattle(new Player(pName), boss, game.createQuestionProvider(), game.getRandom());
-            b.startBattle();
-            game.setScreen(new BattleScreen(game, b, bossIndex, bossLevel, false));
+            game.launchBattle(stage, b, () -> new BattleScreen(game, b, bossIndex, bossLevel, false),
+                    problem -> game.setScreen(new MainMenuScreen(game)));
         }
     }
 

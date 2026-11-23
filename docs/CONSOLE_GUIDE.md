@@ -65,7 +65,8 @@ Each alien asks one type of question.
 | Star Weaver | Reasoning: explain a term in your own words | Thread Bind: each strike locks one of your power-ups for 2 turns |
 
 Answers ignore capital letters and extra spaces. Enumeration items can be in
-any order; a partial list still deals partial damage. A reasoning answer passes
+any order; a partial list still deals partial damage, but each wrong item
+cancels one right item, so do not guess extra items. A reasoning answer passes
 when it uses at least 60% of the key words.
 
 ## 5. A turn

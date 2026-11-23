@@ -38,6 +38,31 @@ class EnumerationQuestionTest {
     }
 
     @Test
+    void eachWrongItemCancelsARightOne() {
+        assertEquals(0.75, question.getMatchRatio("encapsulation, inheritance, polymorphism, abstraction, class"), DELTA);
+        assertFalse(question.checkAnswer("encapsulation, inheritance, polymorphism, abstraction, class"));
+        assertEquals(0.25, question.getMatchRatio("encapsulation, inheritance, object"), DELTA);
+    }
+
+    @Test
+    void namingEverythingDoesNotWin() {
+        String everyChoice = "encapsulation, inheritance, polymorphism, abstraction, class, object, method, field";
+        assertEquals(0.0, question.getMatchRatio(everyChoice), DELTA);
+        assertFalse(question.checkAnswer(everyChoice));
+    }
+
+    @Test
+    void moreWrongThanRightNeverGoesBelowZero() {
+        assertEquals(0.0, question.getMatchRatio("inheritance, class, object, method"), DELTA);
+    }
+
+    @Test
+    void repeatedWrongItemCountsOnceAndBlankPartsAreIgnored() {
+        assertEquals(0.5, question.getMatchRatio("inheritance, polymorphism, abstraction, class, CLASS, , "), DELTA);
+        assertTrue(question.checkAnswer("Encapsulation, Inheritance, Polymorphism, Abstraction,"));
+    }
+
+    @Test
     void nullOrBlankGivesZero() {
         assertEquals(0.0, question.getMatchRatio(null), DELTA);
         assertEquals(0.0, question.getMatchRatio("   "), DELTA);
