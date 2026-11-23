@@ -13,9 +13,9 @@ import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Value;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.neurolink.cosmicquest.CosmicQuestGame;
 import com.neurolink.cosmicquest.logic.Term;
 import com.neurolink.cosmicquest.ui.CosmicAssets;
@@ -36,6 +36,13 @@ public class CodexScreen extends ScreenAdapter {
     private final Stage stage;
     private int selectedEntry = 0;
     private float animTime = 0f;
+    private Table leftVisualCard;
+
+    /** Share of the screen width used by the portrait card (520 px at the 1280 px design width). */
+    private static final float LEFT_CARD_SHARE = 520f / 1280f;
+    /** Size of the left card at the 1280x720 design size; the art below is laid out for it. */
+    private static final float DESIGN_CARD_W = 520f;
+    private static final float DESIGN_CARD_H = 550f;
 
     private Label entryTitleLabel;
     private Label entrySubLabel;
@@ -106,7 +113,7 @@ public class CodexScreen extends ScreenAdapter {
     public CodexScreen(CosmicQuestGame game) {
         this.game = game;
         this.assets = game.getAssets();
-        this.stage = new Stage(new FitViewport(CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT), game.getBatch());
+        this.stage = new Stage(CosmicTheme.newViewport(), game.getBatch());
 
         buildUi();
         refreshEntry();
@@ -189,32 +196,35 @@ public class CodexScreen extends ScreenAdapter {
         entryMechanicLabel.setColor(CosmicTheme.TEXT_WARM);
         entryMechanicLabel.setWrap(true);
 
-        rightInfoCard.add(entryTitleLabel).width(640f).left().row();
-        rightInfoCard.add(entrySubLabel).width(640f).left().padBottom(10f).row();
-        rightInfoCard.add(entryLoreLabel).width(640f).left().padBottom(10f).row();
-        rightInfoCard.add(entryMechanicLabel).width(640f).left().padBottom(14f).row();
+        rightInfoCard.add(entryTitleLabel).growX().left().row();
+        rightInfoCard.add(entrySubLabel).growX().left().padBottom(10f).row();
+        rightInfoCard.add(entryLoreLabel).growX().left().padBottom(10f).row();
+        rightInfoCard.add(entryMechanicLabel).growX().left().padBottom(14f).row();
 
         // Active Lesson Knowledge Scroll
         rightInfoCard.add(new Label("ACTIVE LESSON SCROLL: " + game.getLessonName(), skin, "gold")).left().padBottom(6f).row();
         Table lessonTable = new Table();
-        lessonTable.pad(8f);
+        lessonTable.top().pad(8f);
         for (Term t : game.getLessonData().getTerms()) {
             Label tl = new Label("* " + t.getTerm() + " :: " + t.getDefinition(), skin, "small");
             tl.setWrap(true);
-            lessonTable.add(tl).width(610f).left().padBottom(5f).row();
+            lessonTable.add(tl).growX().left().padBottom(5f).row();
         }
         for (Map.Entry<String, List<String>> en : game.getLessonData().getEnumerations().entrySet()) {
             Label el = new Label("[ENUM] " + en.getKey() + " :: " + String.join(", ", en.getValue()), skin, "small");
             el.setColor(CosmicTheme.ASTRAL_CYAN);
             el.setWrap(true);
-            lessonTable.add(el).width(610f).left().padBottom(5f).row();
+            lessonTable.add(el).growX().left().padBottom(5f).row();
         }
         ScrollPane scroll = new ScrollPane(lessonTable, skin);
         scroll.setFadeScrollBars(false);
-        rightInfoCard.add(scroll).width(640f).growY();
+        scroll.setScrollingDisabled(true, false);
+        scroll.setOverscroll(false, false);
+        rightInfoCard.add(scroll).grow();
 
-        root.add(leftVisualCard).width(520f).growY().padRight(16f);
-        root.add(rightInfoCard).width(688f).growY();
+        this.leftVisualCard = leftVisualCard;
+        root.add(leftVisualCard).width(Value.percentWidth(LEFT_CARD_SHARE, root)).growY().padRight(16f);
+        root.add(rightInfoCard).grow();
     }
 
     private void refreshEntry() {
@@ -238,25 +248,30 @@ public class CodexScreen extends ScreenAdapter {
 
         Texture bg = assets.loadTexture("backgrounds/env_deep_field.png", false);
         batch.begin();
-        batch.draw(bg, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+        CosmicTheme.drawCover(batch, bg, stage.getViewport());
         batch.end();
 
         stage.act(delta);
         stage.draw();
 
-        // Draw Detailed Hades Portrait + 24-Bit Pixel Sprite inside Left Card
+        // Draw Detailed Hades Portrait + 24-Bit Pixel Sprite centred inside the left card,
+        // scaled with the card (offsets are from the card centre at the 1280x720 design size).
+        float s = Math.min(leftVisualCard.getWidth() / DESIGN_CARD_W, leftVisualCard.getHeight() / DESIGN_CARD_H);
+        s = MathUtils.clamp(s, 0.6f, 1.6f);
+        float cx = leftVisualCard.getX() + leftVisualCard.getWidth() * 0.5f;
+        float cy = leftVisualCard.getY() + leftVisualCard.getHeight() * 0.5f;
         float bob = MathUtils.sin(animTime * 3.2f) * 5f;
         Texture portrait = assets.loadTexture(PORTRAIT_PATHS[selectedEntry], false);
         Texture pixel = assets.loadTexture(PIXEL_PATHS[selectedEntry], true);
 
         batch.begin();
-        batch.draw(portrait, 42f, 155f + bob * 0.4f, 245f, 245f);
-        batch.draw(pixel, 305f, 175f + bob, 204f, 185f);
+        batch.draw(portrait, cx - 242f * s, cy - 138f * s + bob * 0.4f, 245f * s, 245f * s);
+        batch.draw(pixel, cx + 21f * s, cy - 118f * s + bob, 204f * s, 185f * s);
 
         assets.fontSmall.setColor(CosmicTheme.GOLD_BRIGHT);
-        assets.fontSmall.draw(batch, "DETAILED HADES PORTRAIT\n(Used in Q&A Dialogue)", 68f, 125f);
+        assets.fontSmall.draw(batch, "DETAILED HADES PORTRAIT\n(Used in Q&A Dialogue)", cx - 216f * s, cy - 168f * s);
         assets.fontSmall.setColor(CosmicTheme.ASTRAL_CYAN);
-        assets.fontSmall.draw(batch, "24-BIT PIXEL SPRITE\n(Used in 2D Attack Cutscene)", 330f, 125f);
+        assets.fontSmall.draw(batch, "24-BIT PIXEL SPRITE\n(Used in 2D Attack Cutscene)", cx + 46f * s, cy - 168f * s);
         assets.fontSmall.setColor(Color.WHITE);
         batch.end();
     }

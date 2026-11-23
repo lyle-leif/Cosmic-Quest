@@ -8,9 +8,11 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
+import com.badlogic.gdx.scenes.scene2d.ui.Value;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -21,7 +23,6 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.neurolink.cosmicquest.CosmicQuestGame;
 import com.neurolink.cosmicquest.console.ConsoleMain;
 import com.neurolink.cosmicquest.logic.QuestionGenerator;
@@ -75,11 +76,11 @@ public class MainMenuScreen extends ScreenAdapter {
     public MainMenuScreen(CosmicQuestGame game) {
         this.game = game;
         this.assets = game.getAssets();
-        this.stage = new Stage(new FitViewport(CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT), game.getBatch());
+        this.stage = new Stage(CosmicTheme.newViewport(), game.getBatch());
 
         for (int i = 0; i < MOTE_COUNT; i++) {
-            moteX[i] = MathUtils.random(0f, CosmicTheme.VIRTUAL_WIDTH);
-            moteY[i] = MathUtils.random(0f, CosmicTheme.VIRTUAL_HEIGHT);
+            moteX[i] = MathUtils.random(0f, CosmicTheme.MAX_WORLD_WIDTH);
+            moteY[i] = MathUtils.random(0f, CosmicTheme.MAX_WORLD_HEIGHT);
             moteSpeed[i] = MathUtils.random(12f, 38f);
             moteSize[i] = MathUtils.random(1.8f, 3.8f);
             moteCyan[i] = MathUtils.randomBoolean(0.35f);
@@ -99,6 +100,14 @@ public class MainMenuScreen extends ScreenAdapter {
 
         Table root = new Table();
         root.setFillParent(true);
+        // On windows taller than 16:9 the extra height goes above this layout, so the buttons
+        // stay right under the logo (which is pinned to the top of the screen).
+        root.padTop(new Value() {
+            @Override
+            public float get(Actor context) {
+                return Math.max(0f, stage.getHeight() - CosmicTheme.VIRTUAL_HEIGHT);
+            }
+        });
         stage.addActor(root);
 
         // Left Column positioned directly below the COSMIC QUEST logo (no numbers on buttons)
@@ -360,8 +369,8 @@ public class MainMenuScreen extends ScreenAdapter {
 
             dialog.pack();
             dialog.setPosition(
-                    Math.round((CosmicTheme.VIRTUAL_WIDTH - dialog.getWidth()) / 2f),
-                    Math.round((CosmicTheme.VIRTUAL_HEIGHT - dialog.getHeight()) / 2f));
+                    Math.round((stage.getWidth() - dialog.getWidth()) / 2f),
+                    Math.round((stage.getHeight() - dialog.getHeight()) / 2f));
         };
 
         backBtn.addListener(new ClickListener() {
@@ -559,8 +568,8 @@ public class MainMenuScreen extends ScreenAdapter {
 
             dialog.pack();
             dialog.setPosition(
-                    Math.round((CosmicTheme.VIRTUAL_WIDTH - dialog.getWidth()) / 2f),
-                    Math.round((CosmicTheme.VIRTUAL_HEIGHT - dialog.getHeight()) / 2f));
+                    Math.round((stage.getWidth() - dialog.getWidth()) / 2f),
+                    Math.round((stage.getHeight() - dialog.getHeight()) / 2f));
         };
 
         backBtn.addListener(new ClickListener() {
@@ -791,6 +800,9 @@ public class MainMenuScreen extends ScreenAdapter {
         batch.setProjectionMatrix(stage.getCamera().combined);
         shapes.setProjectionMatrix(stage.getCamera().combined);
 
+        float worldW = stage.getViewport().getWorldWidth();
+        float worldH = stage.getViewport().getWorldHeight();
+
         // 1. Fullscreen Hades II-Style Splash Key Art
         Texture splash = assets.loadTexture("backgrounds/menu_hades_splash.png", false);
         Texture logo = assets.loadTexture("ui/hades_logo.png", false);
@@ -798,7 +810,7 @@ public class MainMenuScreen extends ScreenAdapter {
 
         batch.begin();
         batch.setColor(Color.WHITE);
-        batch.draw(splash, 0, 0, CosmicTheme.VIRTUAL_WIDTH, CosmicTheme.VIRTUAL_HEIGHT);
+        CosmicTheme.drawCover(batch, splash, stage.getViewport());
         batch.end();
 
         // 2. Subtle Animated Emerald & Cyan Arcane Dust Motes
@@ -807,9 +819,9 @@ public class MainMenuScreen extends ScreenAdapter {
         for (int i = 0; i < MOTE_COUNT; i++) {
             moteY[i] += moteSpeed[i] * delta;
             moteX[i] += MathUtils.sin(animTime * 1.6f + i) * 10f * delta;
-            if (moteY[i] > CosmicTheme.VIRTUAL_HEIGHT + 10f) {
+            if (moteY[i] > worldH + 10f) {
                 moteY[i] = -10f;
-                moteX[i] = MathUtils.random(0f, CosmicTheme.VIRTUAL_WIDTH);
+                moteX[i] = MathUtils.random(0f, worldW);
             }
             if (moteCyan[i]) {
                 shapes.setColor(0.13f, 0.90f, 1.0f, 0.45f);
@@ -822,12 +834,12 @@ public class MainMenuScreen extends ScreenAdapter {
 
         // 3. Draw the COSMIC QUEST I Title Logo + ConsoleMain Status Lines (lesson & AI status)
         batch.begin();
-        batch.draw(logo, 52f, 448f + logoBob, 520f, 192f);
+        batch.draw(logo, 52f, worldH - 272f + logoBob, 520f, 192f);
 
         assets.fontSmall.setColor(0.55f, 0.78f, 0.68f, 0.85f);
         assets.fontSmall.draw(batch, "MAIN MENU  (lesson: " + game.getLessonName() + ")", 42f, 48f);
         assets.fontSmall.draw(batch, game.getAiStatusText(), 42f, 26f);
-        assets.fontSmall.draw(batch, "PREVIEW  //  STARS: " + game.getTotalStarsEarned(), 1085f, 704f);
+        assets.fontSmall.draw(batch, "PREVIEW  //  STARS: " + game.getTotalStarsEarned(), worldW - 195f, worldH - 16f);
         assets.fontSmall.setColor(Color.WHITE);
         batch.end();
 
