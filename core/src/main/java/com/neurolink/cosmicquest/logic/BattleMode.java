@@ -84,8 +84,8 @@ public abstract class BattleMode {
 
     /**
      * Prepares a battle against one alien. The battle starts with
-     * {@link #startBattle()}. The first batch of questions is asked for here,
-     * so with AI on this can wait up to the AI timeout.
+     * {@link #startBattle()}. Question fetching is deferred until then, so
+     * constructing a battle never waits for an AI request.
      *
      * @param entity the alien to fight.
      * @param provider supplies the questions: local, or AI with a local fallback.
@@ -104,7 +104,7 @@ public abstract class BattleMode {
         this.entity = entity;
         this.provider = provider;
         this.random = random;
-        this.questionPool = new QuestionPool(makeQuestions(), random);
+        this.questionPool = new QuestionPool(List.of(), random);
     }
 
     /**
@@ -134,7 +134,9 @@ public abstract class BattleMode {
     protected abstract boolean allPlayersDefeated();
 
     /**
-     * Starts the battle: turn 1 and the first question.
+     * Starts the battle: fetches the first batch, then draws turn 1's question.
+     * With AI enabled this may wait for the provider; the GUI calls it on its
+     * background loader after showing the waiting dialog.
      *
      * @throws IllegalStateException if the battle has already started.
      */

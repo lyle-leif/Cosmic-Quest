@@ -98,8 +98,8 @@ public class PrologueScreen extends ScreenAdapter {
                 disposeVideo();
                 return false;
             }
-            video.play();
             video.setVolume(CosmicAudio.isMuted() ? 0f : 1f);
+            video.play();
             return true;
         } catch (Throwable e) {
             // Missing natives, an unsupported format or a broken file.

@@ -67,8 +67,6 @@ public class BattleScreen extends ScreenAdapter {
         LOADING
     }
 
-    private static final float BASE_TURN_SECONDS = 30f;
-
     // 2D Pixel Stage Anchor Coordinates (Pokemon-inspired diagonal battle staging)
     public static final float HERO_BASE_X = 210f;
     public static final float HERO_BASE_Y = 305f;
@@ -91,8 +89,8 @@ public class BattleScreen extends ScreenAdapter {
     private float dialogueSlide = 0f;
 
     // Turn Timer
-    private float maxTurnTime = BASE_TURN_SECONDS;
-    private float remainingTime = BASE_TURN_SECONDS;
+    private float maxTurnTime;
+    private float remainingTime;
 
     // Shown above the next question: the right answer after a miss, a power-up earned, Hex Bolt.
     private String pendingNotice;
@@ -154,6 +152,8 @@ public class BattleScreen extends ScreenAdapter {
 
     public BattleScreen(CosmicQuestGame game, BattleMode battle, int bossIndex, int bossLevel, boolean squadMode) {
         this.game = game;
+        maxTurnTime = game.getSettings().getTurnSeconds();
+        remainingTime = maxTurnTime;
         this.assets = game.getAssets();
         this.battle = battle;
         this.bossIndex = bossIndex;
@@ -372,7 +372,7 @@ public class BattleScreen extends ScreenAdapter {
         Player current = getActivePlayer();
         Question q = battle.getCurrentQuestion();
 
-        maxTurnTime = BASE_TURN_SECONDS;
+        maxTurnTime = game.getSettings().getTurnSeconds();
         remainingTime = maxTurnTime;
 
         speakerTitleLabel.setText(boss.getName().toUpperCase());

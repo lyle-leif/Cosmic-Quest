@@ -1,6 +1,7 @@
 package com.neurolink.cosmicquest.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -12,6 +13,8 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
+import com.badlogic.gdx.scenes.scene2d.ui.ButtonGroup;
+import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Value;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -20,11 +23,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.neurolink.cosmicquest.CosmicQuestGame;
-import com.neurolink.cosmicquest.console.ConsoleMain;
+import com.neurolink.cosmicquest.GameSettings;
 import com.neurolink.cosmicquest.logic.QuestionGenerator;
 import com.neurolink.cosmicquest.logic.SquadBossBattle;
 import com.neurolink.cosmicquest.model.Entity;
@@ -36,6 +40,7 @@ import com.neurolink.cosmicquest.ui.CosmicTheme;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntFunction;
+import java.util.function.IntConsumer;
 
 /**
  * Hades II-Inspired Main Menu Screen faithful to ConsoleMain:
@@ -177,6 +182,15 @@ public class MainMenuScreen extends ScreenAdapter {
         leftMenuCol.add(squadBtn).width(380f).height(48f).padBottom(6f).row();
         leftMenuCol.add(loadBtn).width(380f).height(46f).padBottom(6f).row();
         leftMenuCol.add(helpBtn).width(380f).height(46f).padBottom(6f).row();
+        TextButton settingsBtn = new TextButton("S E T T I N G S", skin, "hades-menu");
+        settingsBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                CosmicAudio.playClick();
+                showSettingsDialog();
+            }
+        });
+        leftMenuCol.add(settingsBtn).width(380f).height(46f).padBottom(6f).row();
         leftMenuCol.add(prologueBtn).width(380f).height(46f).padBottom(6f).row();
         leftMenuCol.add(exitBtn).width(380f).height(46f).row();
 
@@ -668,9 +682,93 @@ public class MainMenuScreen extends ScreenAdapter {
         stage.setKeyboardFocus(pathField);
     }
 
-    /**
-     * Faithful to ConsoleRenderer.showHowToPlay(30) + quick buttons for Prologue, Codex, and Audio.
-     */
+    private void showSettingsDialog() {
+        Skin skin = assets.getSkin();
+        GameSettings settings = game.getSettings();
+        Dialog dialog = new Dialog("", skin);
+        dialog.setBackground(skin.getDrawable("panel-dialogue"));
+        dialog.setMovable(false);
+        dialog.pad(28f, 36f, 24f, 36f);
+        Table content = dialog.getContentTable();
+        content.defaults().left().pad(5f);
+        content.add(new Label("SETTINGS", skin, "title")).colspan(3).padBottom(16f).row();
+
+        addVolumeControl(content, "Music volume", settings.getMusicPercent(), value -> {
+            settings.setMusicPercent(value);
+            CosmicAudio.refreshMusicVolume();
+        }, false);
+        addVolumeControl(content, "Sound effects", settings.getEffectsPercent(),
+                settings::setEffectsPercent, true);
+
+        content.add(new Label("Mute all audio", skin));
+        TextButton mute = new TextButton(settings.isMuted() ? "On" : "Off", skin, "boon");
+        mute.setChecked(settings.isMuted());
+        mute.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                CosmicAudio.toggleMute();
+                mute.setText(settings.isMuted() ? "On" : "Off");
+                CosmicAudio.playClick();
+            }
+        });
+        content.add(mute).width(84f).height(42f).colspan(2).row();
+
+        content.add(new Label("Question timer", skin));
+        Table presets = new Table();
+        ButtonGroup<TextButton> group = new ButtonGroup<>();
+        for (int seconds : GameSettings.TIMER_CHOICES) {
+            TextButton option = new TextButton(seconds + " s", skin, "boon");
+            group.add(option);
+            option.setChecked(seconds == settings.getTurnSeconds());
+            option.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    if (option.isChecked()) {
+                        settings.setTurnSeconds(seconds);
+                        CosmicAudio.playClick();
+                    }
+                }
+            });
+            presets.add(option).width(70f).height(42f).padRight(4f);
+        }
+        content.add(presets).colspan(2).row();
+        dialog.getButtonTable().padTop(18f);
+        dialog.getButtonTable().defaults().width(120f).height(44f);
+        dialog.button(new TextButton("Done", skin, "utility"));
+        dialog.key(Input.Keys.ESCAPE, null);
+        dialog.show(stage);
+    }
+
+    private void addVolumeControl(Table content, String name, int initial, IntConsumer preview,
+                                  boolean previewEffect) {
+        Skin skin = assets.getSkin();
+        Slider slider = new Slider(0f, 100f, 1f, false, skin, "volume");
+        slider.setValue(initial);
+        Label percent = new Label(initial + "%", skin, "cyan");
+        percent.setAlignment(Align.right);
+        slider.addListener(new ChangeListener() {
+            private long lastPreview;
+
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                int value = Math.round(slider.getValue());
+                preview.accept(value);
+                percent.setText(value + "%");
+                if (previewEffect && System.nanoTime() - lastPreview > 150_000_000L) {
+                    CosmicAudio.playClick();
+                    lastPreview = System.nanoTime();
+                }
+                // Scene2D fires a final change event on release, even if the value is unchanged.
+                if (!slider.isDragging()) {
+                    game.getSettings().save();
+                }
+            }
+        });
+        content.add(new Label(name, skin)).padRight(22f);
+        content.add(slider).width(228f).height(42f);
+        content.add(percent).width(68f).right().row();
+    }
+
     private void showHowToPlayDialog() {
         Skin skin = assets.getSkin();
         final Dialog dialog = new Dialog("", skin);
@@ -686,7 +784,7 @@ public class MainMenuScreen extends ScreenAdapter {
             "- Pick an alien and a level. Each alien asks one type of question.",
             "- A right answer hits the alien. Answers in a row add up to +50% damage.",
             "- A wrong answer lets the alien strike, and the question comes back later.",
-            "- Answer within " + ConsoleMain.ANSWER_TIME_LIMIT_SECONDS + " seconds, or it counts as a miss.",
+            "- Answer within " + game.getSettings().getTurnSeconds() + " seconds, or it counts as a miss.",
             "- Every 3 right answers in a row earn a power-up (up to 3).",
             "- Squad: 2 or 3 pilots take turns against a level 3 boss (Pilot 1 uses Sword, Pilot 2 uses Gun, Pilot 3 uses Spear). A pilot at 0 hull is skipped; the squad loses when every pilot is down."
         };
