@@ -61,6 +61,7 @@ public class CosmicQuestGame extends Game {
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private CosmicAssets assets;
+    private GameSettings settings;
 
     private final Random random = new Random();
     private AiClient ai;
@@ -85,6 +86,8 @@ public class CosmicQuestGame extends Game {
 
     @Override
     public void create() {
+        settings = new GameSettings(Gdx.app.getPreferences("CosmicQuestSettings"));
+        CosmicAudio.configure(settings);
         batch = new SpriteBatch();
         shapes = new ShapeRenderer();
         fadeShapes = new ShapeRenderer();
@@ -403,6 +406,10 @@ public class CosmicQuestGame extends Game {
 
     public CosmicAssets getAssets() {
         return assets;
+    }
+
+    public GameSettings getSettings() {
+        return settings;
     }
 
     public LessonData getLessonData() {

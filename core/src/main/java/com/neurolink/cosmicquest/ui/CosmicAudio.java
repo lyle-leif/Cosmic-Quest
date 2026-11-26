@@ -4,8 +4,9 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.AudioDevice;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.utils.Timer;
-import java.util.ArrayList;
-import java.util.List;
+import com.neurolink.cosmicquest.GameSettings;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 /**
  * Lightweight non-blocking procedural retro synthesizer for Hades/2D pixel UI clicks,
@@ -24,35 +25,44 @@ public final class CosmicAudio {
     };
     private static final String SQUAD_THEME = "audio/music/battle_squad_boss.ogg";
 
-    /** Music sits under the sound effects. */
-    private static final float MUSIC_VOLUME = 0.45f;
     private static final float FADE_IN_SECONDS = 1.2f;
     private static final float FADE_OUT_SECONDS = 0.8f;
     private static final float FADE_TICK = 0.05f;
 
-    private static boolean muted = false;
+    private static GameSettings settings;
 
     private static Music music;
     private static String musicPath;
-    private static float musicVolume;
-    private static final List<Music> fadingOut = new ArrayList<>();
+    // Fade progress stays independent of the user's volume, even when muted.
+    private static float fadeLevel;
+    private static final Map<Music, Float> fadingOut = new IdentityHashMap<>();
     private static Timer.Task fader;
 
     private CosmicAudio() {
     }
 
+    public static void configure(GameSettings preferences) {
+        settings = preferences;
+    }
+
     public static boolean isMuted() {
-        return muted;
+        return settings.isMuted();
     }
 
     public static void toggleMute() {
-        muted = !muted;
+        settings.toggleMute();
+        refreshMusicVolume();
+    }
+
+    public static void refreshMusicVolume() {
         if (music != null) {
-            try {
-                music.setVolume(muted ? 0f : musicVolume);
-            } catch (Throwable ignored) {
-            }
+            applyVolume(music, fadeLevel);
         }
+        fadingOut.forEach(CosmicAudio::applyVolume);
+    }
+
+    private static void applyVolume(Music track, float level) {
+        track.setVolume(settings.isMuted() ? 0f : level * settings.getMusicPercent() / 100f);
     }
 
     /** Battle theme for an alien index in {@code CosmicQuestGame.ALIENS} order, or the squad theme. */
@@ -82,7 +92,7 @@ public final class CosmicAudio {
             next.play();
             music = next;
             musicPath = path;
-            musicVolume = 0f;
+            fadeLevel = 0f;
         } catch (Throwable missingOrNoDevice) {
             music = null;
             musicPath = null;
@@ -103,7 +113,7 @@ public final class CosmicAudio {
             fader = null;
         }
         fadeOutCurrent();
-        for (Music m : fadingOut) {
+        for (Music m : fadingOut.keySet()) {
             disposeQuietly(m);
         }
         fadingOut.clear();
@@ -111,11 +121,11 @@ public final class CosmicAudio {
 
     private static void fadeOutCurrent() {
         if (music != null) {
-            fadingOut.add(music);
+            fadingOut.put(music, fadeLevel);
         }
         music = null;
         musicPath = null;
-        musicVolume = 0f;
+        fadeLevel = 0f;
     }
 
     private static void startFader() {
@@ -133,28 +143,31 @@ public final class CosmicAudio {
     /** Runs on the render thread (LibGDX Timer posts its tasks there). */
     private static void stepFade() {
         boolean busy = false;
-        if (music != null && musicVolume < MUSIC_VOLUME) {
-            musicVolume = Math.min(MUSIC_VOLUME, musicVolume + MUSIC_VOLUME * FADE_TICK / FADE_IN_SECONDS);
+        if (music != null && fadeLevel < 1f) {
+            fadeLevel = Math.min(1f, fadeLevel + FADE_TICK / FADE_IN_SECONDS);
             try {
-                music.setVolume(muted ? 0f : musicVolume);
+                applyVolume(music, fadeLevel);
             } catch (Throwable ignored) {
             }
-            busy = musicVolume < MUSIC_VOLUME;
+            busy = fadeLevel < 1f;
         }
-        for (int i = fadingOut.size() - 1; i >= 0; i--) {
-            Music m = fadingOut.get(i);
+        var tracks = fadingOut.entrySet().iterator();
+        while (tracks.hasNext()) {
+            var entry = tracks.next();
+            Music m = entry.getKey();
             float v;
             try {
-                v = m.getVolume() - MUSIC_VOLUME * FADE_TICK / FADE_OUT_SECONDS;
+                v = entry.getValue() - FADE_TICK / FADE_OUT_SECONDS;
                 if (v > 0f) {
-                    m.setVolume(v);
+                    entry.setValue(v);
+                    applyVolume(m, v);
                 }
             } catch (Throwable broken) {
                 v = 0f;
             }
             if (v <= 0f) {
                 disposeQuietly(m);
-                fadingOut.remove(i);
+                tracks.remove();
             } else {
                 busy = true;
             }
@@ -198,7 +211,7 @@ public final class CosmicAudio {
     }
 
     private static void playToneAsync(float[] freqs, float[] durations, float volume) {
-        if (muted || Gdx.audio == null) {
+        if (settings.isMuted() || settings.getEffectsPercent() == 0 || Gdx.audio == null) {
             return;
         }
         Thread t = new Thread(() -> {
@@ -217,6 +230,7 @@ public final class CosmicAudio {
                         double wave = 0.7 * Math.sin(angle) + 0.3 * Math.signum(Math.sin(angle));
                         pcm[s] = (short) (wave * Short.MAX_VALUE * volume * env);
                     }
+                    device.setVolume(settings.isMuted() ? 0f : settings.getEffectsPercent() / 100f);
                     device.writeSamples(pcm, 0, pcm.length);
                 }
             } catch (Throwable ignored) {

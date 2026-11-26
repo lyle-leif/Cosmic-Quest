@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane.ScrollPaneStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Slider.SliderStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.Window.WindowStyle;
@@ -282,11 +283,11 @@ public class CosmicAssets implements Disposable {
         if (entity instanceof VoidBrute) {
             return "TITAN OF THE EVENT HORIZON  |  IDENTIFICATION TRIAL";
         } else if (entity instanceof StarWeaver) {
-            return "ORACLE OF THE ASTRAL LOOM  |  ENUMERATION TRIAL";
+            return "ORACLE OF THE ASTRAL LOOM  |  REASONING TRIAL";
         } else if (entity instanceof NebulaLich) {
             return "ARCH-SOVEREIGN OF NECROPOLIS  |  MULTIPLE CHOICE TRIAL";
         } else if (entity instanceof LunarBeast) {
-            return "HOUND OF THE SHATTERED MOON  |  REASONING TRIAL";
+            return "HOUND OF THE SHATTERED MOON  |  ENUMERATION TRIAL";
         }
         return "GUARDIAN OF THE VOID";
     }
@@ -323,7 +324,20 @@ public class CosmicAssets implements Disposable {
         }
     }
 
+    private Drawable sliderPart(Color color, int width, int height) {
+        Drawable part = new TextureRegionDrawable(new TextureRegion(whitePixel)).tint(color);
+        part.setMinWidth(width);
+        part.setMinHeight(height);
+        return part;
+    }
+
     private void buildSkin() {
+        SliderStyle volumeSlider = new SliderStyle();
+        volumeSlider.background = sliderPart(CosmicTheme.GOLD_DEEP, 1, 6);
+        volumeSlider.knobBefore = sliderPart(CosmicTheme.GOLD_TRIM, 1, 6);
+        volumeSlider.knob = sliderPart(CosmicTheme.GOLD_BRIGHT, 14, 26);
+        volumeSlider.knobOver = sliderPart(CosmicTheme.ASTRAL_CYAN, 14, 26);
+        skin.add("volume", volumeSlider);
         skin.add("font-small", fontSmall);
         skin.add("font-body", fontBody);
         skin.add("font-medium", fontMedium);
