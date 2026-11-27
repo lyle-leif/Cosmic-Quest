@@ -937,7 +937,8 @@ public class MainMenuScreen extends ScreenAdapter {
         assets.fontSmall.setColor(0.55f, 0.78f, 0.68f, 0.85f);
         assets.fontSmall.draw(batch, "MAIN MENU  (lesson: " + game.getLessonName() + ")", 42f, 48f);
         assets.fontSmall.draw(batch, game.getAiStatusText(), 42f, 26f);
-        assets.fontSmall.draw(batch, "PREVIEW  //  STARS: " + game.getTotalStarsEarned(), worldW - 195f, worldH - 16f);
+        assets.fontSmall.draw(batch, "VERSION 1.0  //  STARS: " + game.getTotalStarsEarned(),
+                0f, worldH - 16f, worldW - 32f, Align.right, false);
         assets.fontSmall.setColor(Color.WHITE);
         batch.end();
 
