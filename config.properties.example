@@ -1,0 +1,23 @@
+# Cosmic Quest AI settings
+#
+# 1. Copy this file and name the copy config.properties (same folder).
+# 2. Put your own keys after the = signs. No quotes, no spaces.
+# 3. config.properties is git-ignored. Never commit it or share your keys.
+#
+# Every key is optional. With no keys, or when a provider fails (no internet,
+# timeout, HTTP 429 rate limit), the game uses local questions:
+# "Offline: using local questions".
+#
+# Order tried: Gemini, then Groq, then local questions.
+
+# Gemini: free key from https://aistudio.google.com (Get API key)
+gemini.api.key=
+gemini.model=gemini-3.5-flash-lite
+
+# Groq: free key from https://console.groq.com (API Keys)
+groq.api.key=
+groq.model=openai/gpt-oss-20b
+groq.url=https://api.groq.com/openai/v1/chat/completions
+
+# Seconds to wait for each provider before trying the next one (1 to 60).
+ai.timeout.seconds=15

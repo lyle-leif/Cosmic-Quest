@@ -1,0 +1,509 @@
+package com.neurolink.cosmicquest.logic;
+
+import com.neurolink.cosmicquest.model.EnumerationQuestion;
+import com.neurolink.cosmicquest.model.Entity;
+import com.neurolink.cosmicquest.model.MultipleChoiceQuestion;
+import com.neurolink.cosmicquest.model.Player;
+import com.neurolink.cosmicquest.model.Question;
+import com.neurolink.cosmicquest.model.QuestionType;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
+
+/**
+ * The shared skeleton of every battle. It owns the alien, the question pool
+ * and the turn cycle; each mode (Solo, Squad) decides what an answer does by
+ * overriding {@link #submitAnswer(String)} and {@link #submitTimeout()}.
+ *
+ * <p>Every question in a battle matches the alien's question type: a Void
+ * Brute asks only identification questions. When the pool runs out, it is
+ * refilled from the {@link QuestionProvider}, so a battle never runs dry.
+ *
+ * <p>The rules of a turn live here, in {@link #answerFor(Player, String)} and
+ * {@link #timeoutFor(Player)}, so every mode plays by the same rules:
+ * <ul>
+ * <li><b>Right answer:</b> the streak grows first, then the player hits the
+ *     alien with the new streak's bonus (decision D8). Score grows by the damage.
+ *     Every 3rd streak earns a power-up.</li>
+ * <li><b>Wrong answer or timeout:</b> the streak resets, the question goes to
+ *     the back of the pool, and the alien strikes the player who answered,
+ *     using its special move if it has one.</li>
+ * <li><b>Partly right enumeration:</b> the player deals partial damage, but it
+ *     still counts as a miss (the alien strikes and the question returns).</li>
+ * <li><b>Order of checks:</b> if the player's hit defeats the alien, it does not
+ *     strike back, so the players win (decision D4).</li>
+ * </ul>
+ *
+ * <p>Turn cycle: {@link #startBattle()}, then repeat
+ * {@link #getCurrentQuestion()}, {@code submitAnswer} (or {@code submitTimeout}),
+ * {@link #nextTurn()} until {@link #isOver()}. See {@link BattleState}.
+ */
+public abstract class BattleMode {
+
+    /** Questions added to the pool each time it is filled. */
+    public static final int QUESTIONS_PER_REFILL = 10;
+
+    /** A power-up is earned on every streak that is a multiple of this. */
+    public static final int REWARD_EVERY_STREAK = 3;
+
+    private static final int DOUBLE_DAMAGE_FACTOR = 2;
+    private static final double FULL_MATCH = 1.0;
+    private static final double NO_MATCH = 0.0;
+
+    protected final Entity entity;
+    protected final QuestionProvider provider;
+    protected final QuestionPool questionPool;
+    protected final Random random;
+    protected BattleState state = BattleState.QUESTION;
+    protected int currentTurn;
+    protected Question currentQuestion;
+    protected boolean doubleDamageNext;
+    protected final MatchStats stats = new MatchStats();
+
+    private final Map<Player, PowerUpInventory> inventories = new IdentityHashMap<>();
+    private String hint;
+    private Set<Integer> hiddenOptions = Set.of();
+
+    /**
+     * Prepares a battle with local questions only.
+     *
+     * @param entity the alien to fight.
+     * @param generator makes questions from the loaded lesson.
+     * @param random shuffles the question pool; tests pass a fixed seed.
+     * @throws IllegalArgumentException if an argument is null, or the lesson
+     *         cannot make questions of the alien's type.
+     */
+    protected BattleMode(Entity entity, QuestionGenerator generator, Random random) {
+        this(entity, generator == null ? null : new LocalProvider(generator), random);
+    }
+
+    /**
+     * Prepares a battle against one alien. The battle starts with
+     * {@link #startBattle()}. Question fetching is deferred until then, so
+     * constructing a battle never waits for an AI request.
+     *
+     * @param entity the alien to fight.
+     * @param provider supplies the questions: local, or AI with a local fallback.
+     * @param random shuffles the question pool; tests pass a fixed seed.
+     * @throws IllegalArgumentException if an argument is null, or the lesson
+     *         cannot make questions of the alien's type.
+     */
+    protected BattleMode(Entity entity, QuestionProvider provider, Random random) {
+        if (entity == null || provider == null || random == null) {
+            throw new IllegalArgumentException("Entity, question provider and random must not be null.");
+        }
+        if (!provider.supports(entity.getQuestionType())) {
+            throw new IllegalArgumentException("This lesson cannot make " + entity.getQuestionType()
+                    + " questions for " + entity.getName() + ".");
+        }
+        this.entity = entity;
+        this.provider = provider;
+        this.random = random;
+        this.questionPool = new QuestionPool(List.of(), random);
+    }
+
+    /**
+     * Answers the current question. Each mode decides what a right or wrong
+     * answer does, then moves the state to PLAYER_ATTACK, ENEMY_ATTACK, WON or LOST.
+     *
+     * @param answer what the player typed.
+     * @return what happened this turn.
+     * @throws IllegalStateException if no question is waiting for an answer.
+     */
+    public abstract TurnResult submitAnswer(String answer);
+
+    /**
+     * Tells the battle the player ran out of time. It counts as a wrong answer.
+     *
+     * @return what happened this turn.
+     * @throws IllegalStateException if no question is waiting for an answer.
+     */
+    public abstract TurnResult submitTimeout();
+
+    /**
+     * Returns true when the players' side has lost: every player is at 0 HP.
+     * Solo checks its one player; Squad checks the whole team.
+     *
+     * @return true if no player can fight on.
+     */
+    protected abstract boolean allPlayersDefeated();
+
+    /**
+     * Starts the battle: fetches the first batch, then draws turn 1's question.
+     * With AI enabled this may wait for the provider; the GUI calls it on its
+     * background loader after showing the waiting dialog.
+     *
+     * @throws IllegalStateException if the battle has already started.
+     */
+    public void startBattle() {
+        if (currentQuestion != null) {
+            throw new IllegalStateException("The battle has already started.");
+        }
+        currentTurn = 1;
+        currentQuestion = drawQuestion();
+        state = BattleState.QUESTION;
+    }
+
+    /**
+     * Moves on after a turn's result has been shown: next turn, next question.
+     *
+     * @throws IllegalStateException if no answer was given yet this turn, or
+     *         the battle is over.
+     */
+    public void nextTurn() {
+        if (state != BattleState.PLAYER_ATTACK && state != BattleState.ENEMY_ATTACK) {
+            throw new IllegalStateException("Cannot move on from state " + state + ".");
+        }
+        currentTurn++;
+        currentQuestion = drawQuestion();
+        state = BattleState.QUESTION;
+    }
+
+    /** Ends the battle early, for example when the player quits. It counts as a loss. */
+    public void endBattle() {
+        if (!state.isFinished()) {
+            state = BattleState.LOST;
+        }
+    }
+
+    /**
+     * Returns the question waiting for an answer.
+     *
+     * @return the current question.
+     * @throws IllegalStateException if the battle has not started.
+     */
+    public Question getCurrentQuestion() {
+        if (currentQuestion == null) {
+            throw new IllegalStateException("The battle has not started; call startBattle() first.");
+        }
+        return currentQuestion;
+    }
+
+    /** Returns where the battle is in its turn cycle. */
+    public BattleState getState() {
+        return state;
+    }
+
+    /** Returns true once the battle is WON or LOST. */
+    public boolean isOver() {
+        return state.isFinished();
+    }
+
+    /** Returns the alien being fought. */
+    public Entity getEntity() {
+        return entity;
+    }
+
+    /** Returns the turn number, starting at 1; 0 before the battle starts. */
+    public int getCurrentTurn() {
+        return currentTurn;
+    }
+
+    /** Returns true if the next hit will deal double damage. */
+    public boolean isDoubleDamageNext() {
+        return doubleDamageNext;
+    }
+
+    /** Returns every question missed so far, each once, for the debrief. */
+    public List<Question> getMissedQuestions() {
+        return questionPool.getMissedQuestions();
+    }
+
+    /**
+     * Returns where the latest questions came from, such as
+     * "AI questions from Gemini" or "Offline: using local questions".
+     */
+    public String getQuestionStatus() {
+        return provider.getStatus();
+    }
+
+    /**
+     * Returns why the AI could not supply the latest questions, such as
+     * "Gemini returned HTTP 429 (rate limit reached).", or null if there was
+     * no problem or AI is off.
+     */
+    public String getQuestionProblem() {
+        return provider instanceof AiQuestionProvider ai ? ai.getLastProblem() : null;
+    }
+
+    /** Returns the battle's running statistics for the debrief. */
+    public MatchStats getStats() {
+        return stats;
+    }
+
+    /**
+     * Adds a finished turn to the statistics and passes it on. Call it on
+     * every result that {@code submitAnswer} or {@code submitTimeout} returns.
+     *
+     * @param result the turn that just ended.
+     * @return the same result.
+     */
+    protected TurnResult record(TurnResult result) {
+        stats.recordAnswer(result);
+        return result;
+    }
+
+    /**
+     * Returns a player's power-up slots, creating empty ones the first time.
+     *
+     * @param player the player.
+     * @return that player's inventory.
+     * @throws IllegalArgumentException if player is null.
+     */
+    public PowerUpInventory getInventory(Player player) {
+        if (player == null) {
+            throw new IllegalArgumentException("The player must not be null.");
+        }
+        return inventories.computeIfAbsent(player, p -> new PowerUpInventory());
+    }
+
+    /**
+     * Uses one of a player's power-ups. Allowed only while a question is
+     * waiting, before answering; it does not use up the turn.
+     *
+     * @param player the player using it.
+     * @param slot the slot, from 0.
+     * @return the power-up that was used.
+     * @throws IllegalStateException if no question is waiting, or the slot is locked.
+     * @throws IllegalArgumentException if the slot is empty.
+     */
+    public PowerUp usePowerUp(Player player, int slot) {
+        requireAwaitingAnswer();
+        return getInventory(player).use(slot, player, this);
+    }
+
+    /** Returns the hint for the current question, or null if none was used. */
+    public String getHint() {
+        return hint;
+    }
+
+    /**
+     * Returns the multiple choice options a Hint has ruled out (0 is A), so
+     * the screen can hide them. Empty when no Hint was used.
+     */
+    public Set<Integer> getHiddenOptions() {
+        return hiddenOptions;
+    }
+
+    /** Arms Double Damage for the next hit that deals damage. Used by {@link DoubleDamage}. */
+    void activateDoubleDamage() {
+        doubleDamageNext = true;
+    }
+
+    /** Stores a hint for the current question. Used by {@link Hint}. */
+    void setHint(String text, Set<Integer> hidden) {
+        hint = text;
+        hiddenOptions = Collections.unmodifiableSet(new TreeSet<>(hidden));
+    }
+
+    /**
+     * Counts down every player's power-up locks by one turn. Call once per
+     * answered turn, before any new lock is added.
+     */
+    protected void tickPowerUpLocks() {
+        for (PowerUpInventory inventory : inventories.values()) {
+            inventory.tickLocks();
+        }
+    }
+
+    /**
+     * Plays a typed answer for one player, following the turn rules above,
+     * and adds the turn to the statistics.
+     *
+     * @param player the player who answered.
+     * @param answer what they typed.
+     * @return what happened this turn.
+     * @throws IllegalStateException if no question is waiting for an answer.
+     */
+    protected TurnResult answerFor(Player player, String answer) {
+        requireAwaitingAnswer();
+        tickPowerUpLocks();
+        double ratio = scoreAnswer(currentQuestion, answer);
+        if (ratio >= FULL_MATCH) {
+            return record(resolveCorrect(player, answer));
+        }
+        return record(resolveMiss(player, answer, ratio, false));
+    }
+
+    /**
+     * Plays a timeout for one player: it counts as a wrong answer.
+     *
+     * @param player the player who ran out of time.
+     * @return what happened this turn.
+     * @throws IllegalStateException if no question is waiting for an answer.
+     */
+    protected TurnResult timeoutFor(Player player) {
+        requireAwaitingAnswer();
+        tickPowerUpLocks();
+        return record(resolveMiss(player, null, NO_MATCH, true));
+    }
+
+    /**
+     * Streak first (D8), then the hit; every 3rd streak earns a power-up.
+     * WON if the alien falls.
+     */
+    private TurnResult resolveCorrect(Player player, String answer) {
+        player.increaseStreak();
+        int dealt = hitEntity(player, FULL_MATCH);
+        PowerUp earned = rewardStreak(player);
+        state = entity.isDefeated() ? BattleState.WON : BattleState.PLAYER_ATTACK;
+        return new TurnResult(currentQuestion, answer, true, false, FULL_MATCH, dealt, 0, state, earned);
+    }
+
+    /**
+     * Gives a random power-up on every 3rd streak, if a slot is free.
+     *
+     * @return the power-up earned, or null if none (wrong streak or full slots).
+     */
+    private PowerUp rewardStreak(Player player) {
+        if (player.getStreak() % REWARD_EVERY_STREAK != 0) {
+            return null;
+        }
+        PowerUp reward = PowerUp.random(random);
+        return getInventory(player).add(reward) ? reward : null;
+    }
+
+    /**
+     * A wrong, partial or timed-out answer. A partial enumeration still deals
+     * damage first; if that defeats the alien, it does not strike back (D4).
+     */
+    private TurnResult resolveMiss(Player player, String answer, double ratio, boolean timedOut) {
+        Question question = currentQuestion;
+        int dealt = ratio > NO_MATCH ? hitEntity(player, ratio) : 0;
+        player.resetStreak();
+        questionPool.recordMissedQuestion(question);
+        int taken = 0;
+        if (entity.isDefeated()) {
+            state = BattleState.WON;
+        } else {
+            taken = strikePlayer(player, itemsMissed(question, ratio));
+            getInventory(player).lockRandomSlot(random, entity.getPowerUpLockTurns());
+            hexBolt(question);
+            state = allPlayersDefeated() ? BattleState.LOST : BattleState.ENEMY_ATTACK;
+        }
+        return new TurnResult(question, answer, false, timedOut, ratio, dealt, taken, state);
+    }
+
+    /**
+     * Hex Bolt: if the alien reshuffles choices, the missed multiple choice
+     * question goes back into the pool with its options in a new order.
+     */
+    private void hexBolt(Question question) {
+        if (entity.reshufflesChoices() && question instanceof MultipleChoiceQuestion choice) {
+            choice.shuffleOptions(random);
+        }
+    }
+
+    /** Deals the player's damage to the alien and adds it to their score. */
+    private int hitEntity(Player player, double ratio) {
+        int damage = calculatePlayerDamage(currentQuestion, player.getStreak(), ratio);
+        entity.takeDamage(damage);
+        player.addScore(damage);
+        return damage;
+    }
+
+    /**
+     * The alien strikes the player. Returns the damage really taken, which is
+     * 0 when a shield blocks the hit.
+     */
+    private int strikePlayer(Player player, int itemsMissed) {
+        int hpBefore = player.getHp();
+        player.takeDamage(entity.getStrikeDamage(currentTurn, itemsMissed));
+        return hpBefore - player.getHp();
+    }
+
+    /** Counts the list items left out; 0 for questions that are not enumeration. */
+    private static int itemsMissed(Question question, double ratio) {
+        if (question instanceof EnumerationQuestion enumeration) {
+            int total = enumeration.getItems().size();
+            return total - (int) Math.round(ratio * total);
+        }
+        return 0;
+    }
+
+    /**
+     * Throws unless a question is waiting for an answer. Call this first in
+     * {@code submitAnswer} and {@code submitTimeout}.
+     *
+     * @throws IllegalStateException if the battle has not started, the answer
+     *         was already given, or the battle is over.
+     */
+    protected void requireAwaitingAnswer() {
+        if (currentQuestion == null) {
+            throw new IllegalStateException("The battle has not started; call startBattle() first.");
+        }
+        if (state != BattleState.QUESTION) {
+            throw new IllegalStateException("Not waiting for an answer; the state is " + state + ".");
+        }
+    }
+
+    /**
+     * Scores an answer from 0.0 to 1.0. Enumeration questions can score in
+     * between; every other type scores 1.0 or 0.0.
+     *
+     * @param question the question answered.
+     * @param answer what the player typed.
+     * @return the share of the answer that was right.
+     */
+    protected static double scoreAnswer(Question question, String answer) {
+        if (question instanceof EnumerationQuestion enumeration) {
+            return enumeration.getMatchRatio(answer);
+        }
+        return question.checkAnswer(answer) ? FULL_MATCH : NO_MATCH;
+    }
+
+    /**
+     * Works out the player's damage for an answer, using
+     * {@link DamageCalculator}. If Double Damage is active it doubles this hit
+     * and is used up.
+     *
+     * @param question the question answered.
+     * @param streak correct answers in a row, counting this one (decision D8).
+     * @param ratio the answer's score from {@link #scoreAnswer}.
+     * @return the damage to deal; 0 when the ratio is 0.
+     */
+    protected int calculatePlayerDamage(Question question, int streak, double ratio) {
+        int damage;
+        if (question.getType() == QuestionType.ENUMERATION) {
+            damage = DamageCalculator.enumerationDamage(question.getDifficulty(), streak, ratio);
+        } else {
+            damage = ratio > NO_MATCH ? DamageCalculator.playerDamage(question.getDifficulty(), streak) : 0;
+        }
+        if (doubleDamageNext && damage > 0) {
+            damage *= DOUBLE_DAMAGE_FACTOR;
+            doubleDamageNext = false;
+        }
+        return damage;
+    }
+
+    /**
+     * Takes the next question, refilling the pool first if it is empty. Any
+     * hint belonged to the previous question, so it is cleared.
+     */
+    private Question drawQuestion() {
+        hint = null;
+        hiddenOptions = Set.of();
+        if (!questionPool.hasNext()) {
+            questionPool.addQuestions(makeQuestions());
+        }
+        return questionPool.getNextQuestion();
+    }
+
+    /**
+     * Asks the provider for a batch of questions of the alien's type.
+     *
+     * @throws IllegalStateException if the provider returns no questions.
+     */
+    private List<Question> makeQuestions() {
+        List<Question> questions = new ArrayList<>(provider.provide(entity.getQuestionType(), QUESTIONS_PER_REFILL));
+        if (questions.isEmpty()) {
+            throw new IllegalStateException("The question provider returned no questions.");
+        }
+        return questions;
+    }
+}

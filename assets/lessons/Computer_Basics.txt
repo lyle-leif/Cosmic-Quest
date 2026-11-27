@@ -1,0 +1,14 @@
+# Computer Basics
+
+CPU :: The processor that executes instructions and performs calculations.
+RAM :: Temporary memory that holds data while programs are running.
+SSD :: A storage device that keeps data even when power is turned off.
+Motherboard :: The main circuit board that connects computer components.
+Keyboard :: An input device used to enter text and commands.
+Monitor :: An output device that displays visual information.
+Operating System :: Software that manages hardware and provides services to applications.
+Browser :: An application used to access and display websites.
+
+[ENUM] Input Devices :: keyboard, mouse, microphone
+[ENUM] Output Devices :: monitor, printer, speakers
+[ENUM] Operating System Examples :: Windows, Linux, macOS
