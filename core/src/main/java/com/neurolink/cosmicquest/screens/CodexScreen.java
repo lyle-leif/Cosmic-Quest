@@ -15,6 +15,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Value;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.neurolink.cosmicquest.CosmicQuestGame;
 import com.neurolink.cosmicquest.logic.Term;
@@ -26,8 +27,8 @@ import java.util.Map;
 
 /**
  * Pantheon Codex & Art Gallery Screen.
- * Showcases all 5 characters' Detailed Hades Portraits alongside their 1-to-1
- * 24-Bit Pixel Battle Sprites, combat mechanics, and loaded lesson knowledge.
+ * Shows portraits, battle sprites, and combat mechanics for all seven
+ * characters alongside the active lesson.
  */
 public class CodexScreen extends ScreenAdapter {
 
@@ -137,7 +138,7 @@ public class CodexScreen extends ScreenAdapter {
         Table header = new Table();
         header.setBackground(skin.getDrawable("panel-dark"));
         header.pad(10f, 18f, 10f, 18f);
-        header.add(new Label("PANTHEON CODEX  //  HADES PORTRAITS & 24-BIT PIXEL SPRITES", skin, "gold")).expandX().left();
+        header.add(new Label("PANTHEON CODEX", skin, "gold")).expandX().left();
 
         TextButton backBtn = new TextButton("BACK TO MAIN MENU", skin, "utility");
         backBtn.addListener(new ClickListener() {
@@ -164,6 +165,8 @@ public class CodexScreen extends ScreenAdapter {
         for (int i = 0; i < 7; i++) {
             final int idx = i;
             TextButton tBtn = new TextButton(tabNames[i], skin, "boon");
+            tBtn.getLabel().setWrap(true);
+            tBtn.getLabel().setAlignment(Align.center);
             tBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
@@ -173,7 +176,7 @@ public class CodexScreen extends ScreenAdapter {
                 }
             });
             tabButtons[i] = tBtn;
-            tabRow.add(tBtn).growX().height(42f).padRight(i < 6 ? 6f : 0f);
+            tabRow.add(tBtn).growX().uniformX().height(42f).padRight(i < 6 ? 6f : 0f);
         }
         root.add(tabRow).growX().colspan(2).padBottom(14f).row();
 
@@ -188,13 +191,11 @@ public class CodexScreen extends ScreenAdapter {
         rightInfoCard.setBackground(skin.getDrawable("panel-dialogue"));
         rightInfoCard.pad(18f);
 
-        entryTitleLabel = new Label("", skin, "title");
-        entrySubLabel = new Label("", skin, "cyan");
-        entryLoreLabel = new Label("", skin, "default");
-        entryLoreLabel.setWrap(true);
-        entryMechanicLabel = new Label("", skin, "small");
+        entryTitleLabel = wrappedLabel("", skin, "title");
+        entrySubLabel = wrappedLabel("", skin, "cyan");
+        entryLoreLabel = wrappedLabel("", skin, "default");
+        entryMechanicLabel = wrappedLabel("", skin, "small");
         entryMechanicLabel.setColor(CosmicTheme.TEXT_WARM);
-        entryMechanicLabel.setWrap(true);
 
         rightInfoCard.add(entryTitleLabel).growX().left().row();
         rightInfoCard.add(entrySubLabel).growX().left().padBottom(10f).row();
@@ -202,7 +203,8 @@ public class CodexScreen extends ScreenAdapter {
         rightInfoCard.add(entryMechanicLabel).growX().left().padBottom(14f).row();
 
         // Active Lesson Knowledge Scroll
-        rightInfoCard.add(new Label("ACTIVE LESSON SCROLL: " + game.getLessonName(), skin, "gold")).left().padBottom(6f).row();
+        Label lessonHeading = wrappedLabel("ACTIVE LESSON SCROLL: " + game.getLessonName(), skin, "gold");
+        rightInfoCard.add(lessonHeading).growX().left().padBottom(6f).row();
         Table lessonTable = new Table();
         lessonTable.top().pad(8f);
         for (Term t : game.getLessonData().getTerms()) {
@@ -220,11 +222,17 @@ public class CodexScreen extends ScreenAdapter {
         scroll.setFadeScrollBars(false);
         scroll.setScrollingDisabled(true, false);
         scroll.setOverscroll(false, false);
-        rightInfoCard.add(scroll).grow();
+        rightInfoCard.add(scroll).grow().minSize(0f).prefSize(0f);
 
         this.leftVisualCard = leftVisualCard;
         root.add(leftVisualCard).width(Value.percentWidth(LEFT_CARD_SHARE, root)).growY().padRight(16f);
-        root.add(rightInfoCard).grow();
+        root.add(rightInfoCard).grow().minWidth(0f).prefWidth(0f);
+    }
+
+    private static Label wrappedLabel(String text, Skin skin, String style) {
+        Label label = new Label(text, skin, style);
+        label.setWrap(true);
+        return label;
     }
 
     private void refreshEntry() {
@@ -268,10 +276,13 @@ public class CodexScreen extends ScreenAdapter {
         batch.draw(portrait, cx - 242f * s, cy - 138f * s + bob * 0.4f, 245f * s, 245f * s);
         batch.draw(pixel, cx + 21f * s, cy - 118f * s + bob, 204f * s, 185f * s);
 
+        float captionWidth = leftVisualCard.getWidth() * 0.5f - 32f;
+        float captionY = cy - 168f * s;
         assets.fontSmall.setColor(CosmicTheme.GOLD_BRIGHT);
-        assets.fontSmall.draw(batch, "DETAILED HADES PORTRAIT\n(Used in Q&A Dialogue)", cx - 216f * s, cy - 168f * s);
+        assets.fontSmall.draw(batch, "DIALOGUE PORTRAIT", leftVisualCard.getX() + 16f,
+                captionY, captionWidth, Align.center, true);
         assets.fontSmall.setColor(CosmicTheme.ASTRAL_CYAN);
-        assets.fontSmall.draw(batch, "24-BIT PIXEL SPRITE\n(Used in 2D Attack Cutscene)", cx + 46f * s, cy - 168f * s);
+        assets.fontSmall.draw(batch, "BATTLE SPRITE", cx + 16f, captionY, captionWidth, Align.center, true);
         assets.fontSmall.setColor(Color.WHITE);
         batch.end();
     }
