@@ -1,4 +1,18 @@
-# Cosmic Quest
+<h1 align="center">Cosmic Quest</h1>
+
+<p align="center">
+  <img src="assets/sprites/hero_cadet_gunner_attack.png" width="96" alt="Orion firing the Adamant Star-Gun">
+  <img src="assets/sprites/hero_cadet_spear.png" width="92" alt="Lyra holding the Eternal Astral Spear">
+  <img src="assets/sprites/enemy_star_weaver.png" width="96" alt="Star Weaver facing the cadets">
+</p>
+
+<p align="center"><strong>A Java study battle game by NeuroLink</strong></p>
+
+<p align="center">
+  <a href="https://github.com/lyle-leif/Cosmic-Quest/releases/tag/v1.0">Download v1.0</a>
+  · <a href="#how-to-run-the-game">Run from source</a>
+  · <a href="#sample-screenshots-and-highlights">See gameplay</a>
+</p>
 
 ## Project Overview
 
@@ -230,9 +244,13 @@ Choose a battle mode, load a lesson, adjust settings, or replay the prologue.
 Answer timed questions to attack the guardian. Squad mode displays the current
 cadet and the team's remaining hull.
 
-![Solo battle against a Level 3 Nebula Lich](docs/screenshots/solo-battle.png)
+**Solo.** Nova faces a Level 3 Lunar Beast in an enumeration trial.
 
-![Three-player Squad battle against a Level 3 Void Brute](docs/screenshots/squad-battle.png)
+![Nova selecting OOP terms against Lunar Beast](docs/screenshots/solo-battle.png)
+
+**Squad.** Orion, the Star-Gun cadet, takes a reasoning turn against a Level 3 Star Weaver.
+
+![Orion with the Adamant Star-Gun facing Star Weaver](docs/screenshots/squad-battle.png)
 
 ### Saved Settings
 
@@ -242,11 +260,12 @@ Set separate audio levels and choose a question timer for both desktop modes.
 
 ### Combat and Mission Debrief
 
-Correct answers trigger pixel combat, followed by a debrief when the battle ends.
+Lyra strikes Star Weaver with the Eternal Astral Spear. After the battle, the
+squad can review its performance in the debrief.
 
-![Pixel combat after a correct answer](docs/screenshots/combat.png)
+![Lyra's spear attack against Star Weaver](docs/screenshots/combat.png)
 
-![Victory screen showing stars, accuracy, damage, and the debrief](docs/screenshots/victory.png)
+![Star Weaver victory screen showing stars, accuracy, damage, and the debrief](docs/screenshots/victory.png)
 
 ## Thank You
 
